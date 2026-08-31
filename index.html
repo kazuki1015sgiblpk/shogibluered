@@ -5819,13 +5819,30 @@
     }
     return set;
   }
+  // 出題番号 -> その回が配信された日(日本時間)。TSUME_JST_DAY と同じ「9時間ずらした軸」なので、
+  // その軸上の日付は getUTC* で取り出すと日本時間の日付になる。
+  function tsumeDateOfNo(n){ return new Date((TSUME_DAY1 + n - 1) * 86400000); }
+  function tsumeDateLabel(n){
+    const d = tsumeDateOfNo(n);
+    return `${d.getUTCFullYear()}年${d.getUTCMonth() + 1}月${d.getUTCDate()}日の詰将棋`;
+  }
+  // 問題名から「第N問 」の見出しを外す(過去の詰将棋では日付が見出しになるため)
+  const tsumeShortName = i => String(TSUME[i].name).replace(/^第\d+問\s*/, "");
+  // 過去の詰将棋: 配信済みの回を {idx, no} で返す。同じ問題が複数回出ている場合は初出の回にまとめる。
   async function pastTsumeIndices(){
-    const set = pastTsumeByDate();
+    const first = new Map();
+    const upto = Math.min(todayTsumeNo() - 1, TSUME_SCHEDULE.length);
+    for(let n = 1; n <= upto; n++){
+      const idx = TSUME_SCHEDULE[n - 1];
+      if(!first.has(idx)) first.set(idx, n);
+    }
     try{
       const served = (await metaGet("tsumeServed")) || [];
-      served.filter(x => x.no < todayTsumeNo()).forEach(x => { if(!set.includes(x.idx)) set.push(x.idx); });
+      served.filter(x => x.no < todayTsumeNo()).forEach(x => {
+        if(!first.has(x.idx) || x.no < first.get(x.idx)) first.set(x.idx, x.no);
+      });
     }catch(e){}
-    return set;
+    return [...first].map(([idx, no]) => ({idx, no})).sort((a, b) => a.no - b.no);
   }
   async function openTsumeFolder(kind){
     TSUME_CUR_FOLDER = kind;
@@ -5834,17 +5851,23 @@
     const head = document.getElementById("tsume-head");
     let title, items, empty = "";
     const folder = TSUME_FOLDERS.find(f => f.kind === kind);
-    if(folder){ title = folder.title; items = tsumeIndicesByLen(folder.len);
+    if(folder){ title = folder.title;
+      // 手数フォルダ: 見出しは問題名、説明はヒントの冒頭
+      items = tsumeIndicesByLen(folder.len)
+        .map(i => ({idx:i, head:TSUME[i].name, sub:esc(TSUME[i].hint).slice(0, 30) + "…"}));
       empty = "この手数の問題はまだありません。"; }
-    else { title = "過去の詰将棋"; items = await pastTsumeIndices();
+    else { title = "過去の詰将棋";
+      // 過去の詰将棋: 見出しは配信日、説明は問題名
+      items = (await pastTsumeIndices())
+        .map(e => ({idx:e.idx, head:tsumeDateLabel(e.no), sub:esc(tsumeShortName(e.idx))}));
       empty = "まだ配信済みの問題はありません。日付が変わると、前日までの「今日の詰将棋」がここに並びます。"; }
     head.innerHTML = `${kind === "past" ? `<svg class="dli" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.5V12l3.2 2"/></svg>` : `<svg class="dli" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg>`}${title}`;
     document.getElementById("tsume-list").innerHTML = `
       <div class="tsub">${title}</div>
       <div class="sublist">
-      ${items.length ? items.map(i => `
-        <div class="gitem zk-row" data-tsume="${i}" role="button" tabindex="0">
-          ${TSUME_ICON}<span class="bl">${esc(TSUME[i].name)}<small>${esc(TSUME[i].hint).slice(0, 30)}…</small></span>
+      ${items.length ? items.map(it => `
+        <div class="gitem zk-row" data-tsume="${it.idx}" role="button" tabindex="0">
+          ${TSUME_ICON}<span class="bl">${esc(it.head)}<small>${it.sub}</small></span>
         </div>`).join("") : `<div class="my-empty my-notecard">${empty}</div>`}
       </div>`;
     if(typeof alignTreeTrunks === "function") setTimeout(alignTreeTrunks, 0);
