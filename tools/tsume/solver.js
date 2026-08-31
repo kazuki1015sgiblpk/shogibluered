@@ -50,8 +50,50 @@
     return found;
   }
 
-  const sq = t => `${t[1]}${t[0]}`;                // [段,筋] → 表示用「筋段」
-  const mvStr = m => m.drop ? `${sq(m.to)}${m.drop}打` : `${sq(m.to)}${sq(m.from)}${m.promo ? "成" : ""}`;
+  const KAN = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+  const sq = t => `${t[1]}${KAN[t[0]]}`;          // [段,筋] → 「4二」のような表記
+  const PROMO_NAME = {"歩":"と", "香":"成香", "桂":"成桂", "銀":"成銀", "角":"馬", "飛":"竜"};
+  function mvStr(st, m){                          // 指す前の局面で呼ぶこと
+    if(m.drop) return `${m.s === ATK ? "▲" : "△"}${sq(m.to)}${m.drop}打`;
+    const p = st.b[`${m.from[0]}-${m.from[1]}`];
+    const name = p.p ? (PROMO_NAME[p.t] || p.t) : p.t;
+    return `${m.s === ATK ? "▲" : "△"}${sq(m.to)}${name}${m.promo ? "成" : ""}`;
+  }
+
+  /* 詰み手順(読み筋)を1本取り出す。玉方は「最も長く粘る応手」を選ぶ。
+   * ヒント文を書くときに、実際の手順を確かめるために使う。 */
+  function principalVariation(st, n){
+    const line = [];
+    let depth = n;
+    while(depth > 0){
+      const best = atkMate(st, depth, false)[0];
+      if(!best) break;
+      line.push(mvStr(st, best));
+      doMoveP(st, best);
+      const replies = legalAllP(st, DEF, true);
+      if(!replies.length) break;                  // 詰み上がり
+      // 玉方は最も長く粘る応手を選ぶ。応手ごとに「あと何手で詰むか」を測り、最大のものを採る。
+      // (単に玉を動かす手を選ぶと、劣った受けを拾って手順が途中で終わってしまう)
+      let pick = null, pickCost = -1;
+      for(const d of replies){
+        const u = doMoveP(st, d);
+        let cost = Infinity;                      // Infinity は「詰まない」= 本来ありえない
+        for(let k = 1; k <= depth - 2; k += 2){
+          if(atkMate(st, k, false).length){ cost = k; break; }
+        }
+        undoMoveP(st, u);
+        if(cost > pickCost){ pickCost = cost; pick = d; }
+      }
+      line.push(mvStr(st, pick));
+      doMoveP(st, pick);
+      depth -= 2;
+    }
+    return line;
+  }
+  window.tsumePV = function(q, len){
+    const st = buildState(q);
+    return principalVariation(st, len || 1);
+  };
 
   /* 1問を検証する。
    * declaredLen: 問題が名乗っている手数（TSUME[i].len、既定1）
@@ -75,13 +117,14 @@
     if(shortest < want) issues.push(`${shortest}手で詰む（宣言は${want}手詰＝早詰み）`);
 
     // 最短手数での初手が一意か（一意でなければ余詰め）
-    const roots = atkMate(buildState(q), shortest, true);
-    if(roots.length > 1) issues.push(`初手が${roots.length}通りある（余詰め）: ${roots.map(mvStr).join(" / ")}`);
+    const rootSt = buildState(q);
+    const roots = atkMate(rootSt, shortest, true);
+    if(roots.length > 1) issues.push(`初手が${roots.length}通りある（余詰め）: ${roots.map(m => mvStr(rootSt, m)).join(" / ")}`);
 
     return {
       ok: issues.length === 0,
       shortest,
-      firstMoves: roots.map(mvStr),
+      firstMoves: roots.map(m => mvStr(rootSt, m)),
       nodes,
       ms: Math.round(performance.now() - t0),
       issues
