@@ -1591,8 +1591,6 @@
     <div class="tree">
 <div class="tsub">詰将棋</div>
       <button id="btn-tsume-today" class="today-card"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg><span class="bl">今日の詰将棋<small id="tsume-today-sub">毎日同じ時刻に1問配信</small></span><span class="today-no" id="tsume-today-no"></span></button>
-      <button id="btn-folder-t1"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg><span class="bl">詰将棋（一手詰）<small>入門にぴったりの1手詰</small></span></button>
-      <button id="btn-folder-t3"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg><span class="bl">詰将棋（三手詰）<small>読みの基礎が身につく3手詰</small></span></button>
       <button id="btn-folder-past"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.5V12l3.2 2"/></svg><span class="bl">過去の詰将棋<small id="past-sub">配信済みの「今日の詰将棋」</small></span></button>
       <div class="tsub">AIと対局</div>
       <button id="btn-vsai-easy"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 9.7L11.4 11.7L12.2 19.3H4.8L5.6 11.7Z"/><path d="M15.5 14.3L12.6 12.3L11.8 4.7H19.2L18.4 12.3Z"/></svg><span class="bl">やさしい<small>1手先だけ考える入門AI。初勝利を目指しましょう！</small></span></button>
@@ -5783,6 +5781,31 @@
   // ---------- 詰将棋フォルダ(画面遷移型) ----------
   const TSUME_ICON = `<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg>`;
   function tsumeCatLen(i){ return TSUME[i].len || 1; }
+  // 手数フォルダの定義。所属は問題の len から決まるので、TSUME に問題を追加すれば
+  // 対応するフォルダに自動で並ぶ（添字を書き並べる必要がない）。
+  // 新しい手数を扱いたくなったらこの配列に1行足すだけでよい。
+  const TSUME_FOLDERS = [
+    {kind:"t1", len:1, title:"詰将棋（一手詰）", sub:"入門にぴったりの1手詰"},
+    {kind:"t3", len:3, title:"詰将棋（三手詰）", sub:"読みの基礎が身につく3手詰"},
+    {kind:"t5", len:5, title:"詰将棋（五手詰）", sub:"手順を組み立てる5手詰"},
+    {kind:"t7", len:7, title:"詰将棋（七手詰）", sub:"歯ごたえのある7手詰"}
+  ];
+  const tsumeIndicesByLen = len => TSUME.map((q, i) => i).filter(i => tsumeCatLen(i) === len);
+  // 問題が1問もない手数のフォルダは出さない。
+  // ボタンは .tree の直接の子である必要がある(.tree > * が行の高さと枝線を描くため、
+  // 包みのdivを挟むとスタイルが当たらない)。そのため「過去の詰将棋」の直前に差し込む。
+  function renderTsumeFolders(){
+    const anchor = document.getElementById("btn-folder-past");
+    if(!anchor) return;
+    const parent = anchor.parentElement;
+    parent.querySelectorAll("[data-folder]").forEach(el => el.remove());
+    TSUME_FOLDERS.filter(f => tsumeIndicesByLen(f.len).length).forEach(f => {
+      const b = document.createElement("button");
+      b.dataset.folder = f.kind;
+      b.innerHTML = `${TSUME_ICON}<span class="bl">${esc(f.title)}<small>${esc(f.sub)}</small></span>`;
+      parent.insertBefore(b, anchor);
+    });
+  }
   // 過去の詰将棋: 今日より前に配信された回の問題(重複は除く)
   function pastTsumeByDate(){
     const set = [];
@@ -5807,8 +5830,9 @@
     box.hidden = false;
     const head = document.getElementById("tsume-head");
     let title, items, empty = "";
-    if(kind === "t1"){ title = "詰将棋（一手詰）"; items = [0,1,2].filter(i => TSUME[i]); }
-    else if(kind === "t3"){ title = "詰将棋（三手詰）"; items = [3,4,5].filter(i => TSUME[i]); }
+    const folder = TSUME_FOLDERS.find(f => f.kind === kind);
+    if(folder){ title = folder.title; items = tsumeIndicesByLen(folder.len);
+      empty = "この手数の問題はまだありません。"; }
     else { title = "過去の詰将棋"; items = await pastTsumeIndices();
       empty = "まだ配信済みの問題はありません。日付が変わると、前日までの「今日の詰将棋」がここに並びます。"; }
     head.innerHTML = `${kind === "past" ? `<svg class="dli" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.5V12l3.2 2"/></svg>` : `<svg class="dli" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg>`}${title}`;
@@ -5823,8 +5847,11 @@
     if(typeof alignTreeTrunks === "function") setTimeout(alignTreeTrunks, 0);
     if(typeof updateViewerVisibility === "function") updateViewerVisibility();
   }
-  document.getElementById("btn-folder-t1").addEventListener("click", () => openTsumeFolder("t1"));
-  document.getElementById("btn-folder-t3").addEventListener("click", () => openTsumeFolder("t3"));
+  renderTsumeFolders();
+  document.getElementById("btn-folder-past").parentElement.addEventListener("click", e => {
+    const b = e.target.closest("[data-folder]");
+    if(b) openTsumeFolder(b.dataset.folder);
+  });
   document.getElementById("btn-folder-past").addEventListener("click", () => openTsumeFolder("past"));
   let TSUME_FROM = null;   // 問題を開いたときの出身フォルダ("t1"/"t3"/"past")。盤面から戻る先に使う
   document.getElementById("tsume-list").addEventListener("click", e => {
