@@ -5767,7 +5767,18 @@
   const TSUME_JST_DAY = () => Math.floor((Date.now() + 9 * 3600000) / 86400000);
   const TSUME_DAY1 = Math.floor((Date.UTC(2026, 7, 27) + 9 * 3600000) / 86400000);  // 配信第1回 = 2026/8/27(JST)
   function todayTsumeNo(){ return TSUME_JST_DAY() - TSUME_DAY1 + 1; }               // 出題番号(#1, #2, …)
-  const TODAY_POOL = [6];   // 今日の詰将棋の出題プール(オリジナル問題。今後ここに追加していく)
+  // 配信スケジュール: 出題番号(#1, #2, …) -> TSUME の添字。
+  // ★必ず末尾に追加すること。既存の要素を書き換えると、配信済みの回の問題が
+  //   遡って別の問題にすり替わる(過去の詰将棋の中身が変わってしまう)。
+  //   毎日の自動配信スクリプトもこの配列に追記する。
+  // #1〜#6 (2026/8/27〜9/1) は旧実装(出題プール1件)で全日とも第7問を配信していたため、
+  // その履歴をそのまま再現している。#7 以降を自動配信スクリプトが追記していく。
+  const TSUME_SCHEDULE = [6, 6, 6, 6, 6, 6];
+  // スケジュールが尽きた日(自動配信が止まった等)は、最後に配信した問題を出し続ける
+  function tsumeIndexForNo(n){
+    if(!TSUME_SCHEDULE.length) return null;
+    return TSUME_SCHEDULE[Math.min(Math.max(n, 1), TSUME_SCHEDULE.length) - 1];
+  }
   let TSUME_CUR_FOLDER = null;   // 現在開いている詰将棋フォルダ種別
   // ---------- 詰将棋フォルダ(画面遷移型) ----------
   const TSUME_ICON = `<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg>`;
@@ -5775,8 +5786,9 @@
   // 過去の詰将棋: 今日より前に配信された回の問題(重複は除く)
   function pastTsumeByDate(){
     const set = [];
-    for(let n = 1; n < todayTsumeNo(); n++){
-      const idx = TODAY_POOL[((n - 1) % TODAY_POOL.length + TODAY_POOL.length) % TODAY_POOL.length];
+    const upto = Math.min(todayTsumeNo() - 1, TSUME_SCHEDULE.length);
+    for(let n = 1; n <= upto; n++){
+      const idx = TSUME_SCHEDULE[n - 1];
       if(!set.includes(idx)) set.push(idx);
     }
     return set;
@@ -5820,8 +5832,7 @@
     if(el) setTimeout(() => startTsume(+el.dataset.tsume), 0);
   });
   function todayTsumeIndex(){
-    const n = todayTsumeNo() - 1;
-    return TODAY_POOL[((n % TODAY_POOL.length) + TODAY_POOL.length) % TODAY_POOL.length];
+    return tsumeIndexForNo(todayTsumeNo());
   }
   function refreshTodayTsume(){
     const ti = todayTsumeIndex();
