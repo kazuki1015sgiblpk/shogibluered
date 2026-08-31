@@ -90,7 +90,8 @@
   .tray .hand-label{font-size:13px;color:var(--sub);white-space:nowrap}
   .hand{
     display:flex;gap:5px;flex-wrap:nowrap;align-items:center;
-    overflow-x:auto;scrollbar-width:none;min-width:0;flex:1;
+    overflow-x:auto;overflow-y:visible;scrollbar-width:none;min-width:0;flex:1;
+    padding:3px 3px;
   }
   .hand::-webkit-scrollbar{display:none}
   .hand .koma{width:30px;height:36px}
@@ -485,7 +486,7 @@
   .tbtn svg{width:26px;height:26px;display:block}
   .tbtn.tbig svg{width:46px;height:46px}
   /* ---------- トレー高さ固定(v54) ---------- */
-  .tray{height:46px;box-sizing:border-box;overflow:hidden;align-items:center}
+  .tray{height:46px;box-sizing:border-box;overflow-x:hidden;overflow-y:visible;align-items:center}
   .hand .koma{flex:none}
   /* ---------- 全画面メニュー(v56) ---------- */
   .tabpanel{
@@ -584,7 +585,7 @@
   }
   .tree .soon{font-size:13px;text-align:left;justify-content:flex-start}
   .tree .bl{line-height:1.35;min-width:0}
-  .tree .bl small{white-space:normal}
+  .tree .bl small{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
   /* ---------- モダンUIレイヤー(v67) ---------- */
   body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif}
   header{
@@ -959,7 +960,7 @@
     border-radius:999px;padding:8px 16px;font-size:17px;font-weight:600;font-family:inherit;cursor:pointer;
   }
   .pb-btn.gold{background:linear-gradient(150deg,#f6c94e,#dd9a1e);border:none;color:#181203}
-  .hand .koma.pick{border-radius:8px;box-shadow:0 0 0 2.5px var(--gold)}
+  .hand .koma.pick{border-radius:8px;outline:2.5px solid var(--gold);outline-offset:-1px;box-shadow:0 0 6px rgba(232,185,62,.6)}
   /* ---------- 盤・駒のリアリティ強化(v138) ---------- */
   /* 盤: 榧の一枚板を思わせる縦木目(マスをまたいで連続) */
   .board::before{
@@ -1096,8 +1097,8 @@
   #about-box .gi-list b{font-weight:600;color:var(--ink)}
 
   /* 図鑑見出し: アイコンを文字の左に横並び */
-  #zukan-head{display:inline-flex;align-items:center;gap:8px;min-width:0}
-  #zukan-head svg.dli{flex:none}
+  #zukan-head, #tsume-head{display:inline-flex;align-items:center;gap:8px;min-width:0}
+  #zukan-head svg.dli, #tsume-head svg.dli{flex:none}
 
   /* ---------- iOS標準アプリ準拠のタイポグラフィ(v175) ---------- */
   .mtab{font-size:11px !important;gap:4px;flex-direction:column;padding:8px 0 !important}
@@ -1489,6 +1490,26 @@
   #mysub-box .dir-label{position:relative}
   .my-tools{position:absolute;right:0;top:50%;transform:translateY(-50%);display:inline-flex;gap:8px}
   .my-tools .filebtn2{font-size:13.5px;min-height:34px;padding:5px 13px;font-weight:600}
+  /* 今日の詰将棋: 朱藍グラデーションで縁取った特別カード */
+  #btn-tsume-today.today-card{
+    border:2px solid transparent !important;
+    background:
+      linear-gradient(var(--panel), var(--panel)) padding-box,
+      linear-gradient(90deg, #f1a488, #8fbbea) border-box !important;
+  }
+  .tsume-count{
+    margin-left:auto;flex:none;font-size:15px;font-weight:700;color:var(--gold);
+    font-family:system-ui,sans-serif;letter-spacing:.02em;
+    padding:2px 12px;border:1px solid rgba(232,185,62,.5);border-radius:999px;
+  }
+  .tsume-count[hidden]{display:none}
+  .today-no{
+    flex:none;margin-left:auto;
+    font-size:13px;font-weight:700;letter-spacing:.04em;
+    color:var(--gold);
+    border:1px solid rgba(232,185,62,.5);border-radius:999px;
+    padding:3px 10px;
+  }
   .my-notecard{font-size:13.5px !important;line-height:1.75 !important;text-align:left !important}
   .tree .my-notecard::before, .tree .sublist > .my-notecard::before{display:none !important;content:none !important}  /* 注意書きには枝を付けない */
   .rowname{display:block;overflow:hidden;white-space:nowrap}
@@ -1568,18 +1589,15 @@
     <div class="menuboard">
     <div class="dir-label"><svg class="dli" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 9.7L11.4 11.7L12.2 19.3H4.8L5.6 11.7Z"/><path d="M15.5 14.3L12.6 12.3L11.8 4.7H19.2L18.4 12.3Z"/></svg>戦う</div>
     <div class="tree">
+<div class="tsub">詰将棋</div>
+      <button id="btn-tsume-today" class="today-card"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg><span class="bl">今日の詰将棋<small id="tsume-today-sub">毎日同じ時刻に1問配信</small></span><span class="today-no" id="tsume-today-no"></span></button>
+      <button id="btn-folder-t1"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg><span class="bl">詰将棋（一手詰）<small>入門にぴったりの1手詰</small></span></button>
+      <button id="btn-folder-t3"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg><span class="bl">詰将棋（三手詰）<small>読みの基礎が身につく3手詰</small></span></button>
+      <button id="btn-folder-past"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.5V12l3.2 2"/></svg><span class="bl">過去の詰将棋<small id="past-sub">配信済みの「今日の詰将棋」</small></span></button>
       <div class="tsub">AIと対局</div>
       <button id="btn-vsai-easy"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 9.7L11.4 11.7L12.2 19.3H4.8L5.6 11.7Z"/><path d="M15.5 14.3L12.6 12.3L11.8 4.7H19.2L18.4 12.3Z"/></svg><span class="bl">やさしい<small>1手先だけ考える入門AI。初勝利を目指しましょう！</small></span></button>
       <button id="btn-vsai-normal"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 9.7L11.4 11.7L12.2 19.3H4.8L5.6 11.7Z"/><path d="M15.5 14.3L12.6 12.3L11.8 4.7H19.2L18.4 12.3Z"/></svg><span class="bl">ふつう<small>2〜3手先を読むAI。絶妙な塩梅の強さ！</small></span></button>
       <button id="btn-vsai-hard"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 9.7L11.4 11.7L12.2 19.3H4.8L5.6 11.7Z"/><path d="M15.5 14.3L12.6 12.3L11.8 4.7H19.2L18.4 12.3Z"/></svg><span class="bl">つよい<small>さらに深く読むAI。腕試しの相手にどうぞ！</small></span></button>
-      <div class="tsub">詰将棋（一手詰）</div>
-      <button id="btn-tsume-0"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg><span class="bl">第1問 頭金のかたち<small>いちばん有名な詰みの形</small></span></button>
-      <button id="btn-tsume-1"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg><span class="bl">第2問 飛車のはたらき<small>遠くから王手する大駒の力</small></span></button>
-      <button id="btn-tsume-2"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg><span class="bl">第3問 桂のいっぱつ<small>取られずに王手できる駒はどれでしょうか？</small></span></button>
-      <div class="tsub">詰将棋（三手詰）</div>
-      <button id="btn-tsume-3"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg><span class="bl">第4問 離して打つ飛車<small>大駒は近づけすぎないのがコツ</small></span></button>
-      <button id="btn-tsume-4"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg><span class="bl">第5問 成って竜<small>飛車をパワーアップさせて仕留めよう</small></span></button>
-      <button id="btn-tsume-5"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg><span class="bl">第6問 支える桂<small>離れた駒の支えを活かす一手</small></span></button>
     </div>
     </div>
   </div>
@@ -1648,6 +1666,12 @@
     <ul class="gi-list">
       <li>不具合のご報告やご要望は、公開ページに記載の連絡先までお寄せください。</li>
     </ul>
+    </div>
+  </div>
+  <div class="pastebox panelbox" id="tsume-box" hidden>
+    <div class="menuboard">
+    <div class="dir-label"><button class="backbtn" aria-label="戻る"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 5.5L8 12l6.5 6.5"/></svg></button><span id="tsume-head"></span></div>
+    <div class="tree mypage-tree" id="tsume-list"></div>
     </div>
   </div>
   <div class="pastebox panelbox" id="zukan-box" hidden>
@@ -1775,6 +1799,7 @@
   <div class="tray gote">
     <div class="nm serif"><span style="color:#93b8dc">△</span><span id="tray-nm-g">真田</span></div>
     <div class="hand" id="hand-g"></div>
+    <span class="tsume-count" id="tsume-count" hidden></span>
   </div>
 
   <div class="board-outer">
@@ -3337,7 +3362,7 @@
       sente: meta.sente || "先手",
       gote:  meta.gote  || "後手",
       end: end,
-      sub: `全${moves.length}手`
+      sub: meta.sub != null ? meta.sub : `全${moves.length}手`
     }};
   }
 
@@ -3391,7 +3416,7 @@
       event: meta.event || "読み込んだ棋譜",
       sente: meta.sente || "先手",
       gote:  meta.gote  || "後手",
-      end, sub: `全${moves.length}手`
+      end, sub: meta.sub != null ? meta.sub : `全${moves.length}手`
     }};
   }
 
@@ -3676,7 +3701,7 @@
     setContentOn(null);
     updateHeader();
     render();
-    let loadedMsg = `「${META.event}」を読み込みました（全${MOVES.length}手）`;
+    let loadedMsg = "棋譜を読み込みました！";
     if(parsed.warnings && parsed.warnings.length){
       const w = parsed.warnings.slice(0, 3);
       loadedMsg += "\n※ " + w.join("\n※ ");
@@ -3717,6 +3742,12 @@
     document.getElementById("nm-g").textContent = META.gote;
     document.getElementById("tray-nm-s").textContent = META.sente;
     document.getElementById("tray-nm-g").textContent = META.gote;
+    const tc = document.getElementById("tsume-count");
+    if(tc){
+      const isTsume = (typeof PLAY !== "undefined" && PLAY.on && PLAY.tsume != null);
+      tc.hidden = !isTsume;
+      if(isTsume) tc.textContent = META.sub || "";
+    }
     document.getElementById("sub-info").textContent = META.sub;
     document.getElementById("total").textContent = MOVES.length;
     seekEl.max = MOVES.length;
@@ -3836,7 +3867,7 @@
       ? `<button class="dotbtn" data-actmenu aria-label="メニュー"><svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg></button>`
       : `<button class="favbtn${faved ? " faved" : ""}" data-actfav aria-label="好きな棋譜">${faved ? "★" : "☆"}</button>` +
         (canDel ? `<button class="delbtn" data-actdel aria-label="削除"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v5.5M14 11v5.5"/></svg></button>` : "");
-    const subDisp = String(sub).replace(/・/g, " / ");   // 区切りは「 / 」で統一(過去の保存分も表示時に変換)
+    const subDisp = String(sub).replace(/・/g, "／").replace(/\s*\/\s*/g, "／");   // 区切りは全角「／」で統一
     return `<div class="gitem zk-row" data-list="${list}" data-idx="${i}">
       ${MP_ICONS[list === "fav" ? "fav" : list]}
       <span class="bl"><span class="rowname"><span class="marq">${esc(name)}</span></span><small>${esc(subDisp)}</small></span>
@@ -3872,7 +3903,7 @@
       a.download = `マイ棋譜バックアップ_${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}.json`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 3000);
-      toast(`マイ棋譜 ${items.length}局を書き出しました`);
+      toast(`マイ棋譜 ${items.length}局を書き出しました！`);
     }catch(e){ toast(STORAGE_NG, true); }
   }
   async function importMyKifu(file){
@@ -3888,7 +3919,7 @@
         await dbPut(rec);
         n++;
       }
-      toast(`マイ棋譜に${n}局を読み込みました`);
+      toast(`マイ棋譜に${n}局を読み込みました！`);
       renderFolder("my");
     }catch(e){ toast("読み込みに失敗しました：" + e.message, true); }
   }
@@ -3995,7 +4026,7 @@
           await metaPut("favs", fs);
         }
         renderFolder("my");
-        toast("名前を変更しました");
+        toast("名前を変更しました！");
       }else if(b.dataset.mact === "fav"){
         await toggleFav(myRef(it));
         renderFolder("my");
@@ -4003,7 +4034,7 @@
         if(!confirm(`「${it.name}」を削除しますか？\nこの操作は取り消せません。`)) return;
         await dbDel(it.id);
         renderFolder("my");
-        toast("削除しました");
+        toast("削除しました！");
       }
     }catch(err){ toast(STORAGE_NG, true); }
   });
@@ -4024,20 +4055,20 @@
         const faved = LAST_FAVS.some(x => refKey(x) === refKey(ref));
         if(faved && !favArmed(refKey(ref))){
           favArm(refKey(ref));
-          toast(`もう一度★を押すと「${ref.name}」を好きな棋譜から外します`);
+          toast(`もう一度★を押すと「${ref.name}」を好きな棋譜から外します！`);
           return;
         }
         favDisarm();
         await toggleFav(ref);
         renderFolder(LAST_FOLDER);
-        if(faved) toast("好きな棋譜から外しました");
+        if(faved) toast("好きな棋譜から外しました！");
         return;
       }
       if(e.target.closest("[data-actdel]")){
         if(!confirm(`「${ref.name}」を削除しますか？\nこの操作は取り消せません。`)) return;
         await dbDel(LAST_MY[idx].id);
         renderFolder(LAST_FOLDER);
-        toast("削除しました");
+        toast("削除しました！");
         return;
       }
       if(ref.kind === "game"){
@@ -4049,7 +4080,7 @@
       }else if(ref.kind === "my"){
         const items = await dbAll();
         const it = items.find(x => x.id === ref.id);
-        if(!it){ toast("この棋譜は削除されています", true); return; }
+        if(!it){ toast("この棋譜は削除されています！", true); return; }
         if(it.raw) applyLoaded(parseRecord(it.raw));   // 原文があれば原文から再現(駒落ち等も正確)
         else applyLoaded(decorateAndFinish(unpackMoves(it.moves), it.meta, "", it.meta.end || ""));
       }else if(ref.raw){
@@ -4061,16 +4092,16 @@
       CURRENT_REF = ref;
       recordRecent(ref);
       document.getElementById("mysub-box").hidden = true;
-    }catch(err){ toast("操作に失敗しました：" + err.message, true); }
+    }catch(err){ toast("操作に失敗しました。：" + err.message, true); }
   });
   document.getElementById("btn-save").addEventListener("click", async () => {
-    if(!MOVES.length){ toast("保存できる棋譜がありません", true); return; }
+    if(!MOVES.length){ toast("保存できる棋譜がありません！", true); return; }
     const stamp = PLAY.on ? `（${new Date().toLocaleString("ja-JP")}）` : "";
     const name = `${META.event}${stamp}（${META.sente} vs ${META.gote}）`;
     try{
       await dbPut({name, moves: packMoves(MOVES),
         meta: {event: META.event, sente: META.sente, gote: META.gote, end: META.end}, savedAt: Date.now()});
-      toast(`「${name}」を保存しました（記録 → マイ棋譜）`);
+      toast(`「${name}」を保存しました！（記録 → マイ棋譜）`);
     }catch(e){ toast(STORAGE_NG, true); }
   });
 
@@ -4080,7 +4111,7 @@
   document.getElementById("btn-share").addEventListener("click", async () => {
     const payload = {v:1, e:META.event, s:META.sente, g:META.gote, x:META.end, m:packMoves(MOVES)};
     const url = location.href.split("#")[0] + "#k=" + b64uEnc(JSON.stringify(payload));
-    const done = () => toast("共有リンクをコピーしました。SNSやメッセージに貼り付けて共有できます");
+    const done = () => toast("共有リンクをコピーしました！");
     try{
       await navigator.clipboard.writeText(url);
       done();
@@ -4484,10 +4515,10 @@
   renderGameList();
 
   // ---------- 戻るボタン(1階層上のメニューへ) ----------
-  const BACK_PARENT = {"zukan-box":"shiru", "koma-box":"shiru", "file-box":"mybox", "mysub-box":"mybox", "mirusub-box":"miru"};
+  const BACK_PARENT = {"zukan-box":"shiru", "koma-box":"shiru", "tsume-box":"tatakau", "file-box":"mybox", "mysub-box":"mybox", "mirusub-box":"miru"};
   document.querySelectorAll(".backbtn").forEach(b => b.addEventListener("click", () => {
     const box = b.closest(".pastebox");
-    ["my-box","mysub-box","zukan-box","koma-box","file-box","mirusub-box","about-box"].forEach(id => document.getElementById(id).hidden = true);
+    ["my-box","mysub-box","zukan-box","tsume-box","koma-box","file-box","mirusub-box","about-box"].forEach(id => document.getElementById(id).hidden = true);
     closeTabMenus();
     const parentTab = box ? BACK_PARENT[box.id] : null;
     if(parentTab === "mybox"){
@@ -4501,7 +4532,8 @@
 
   // ---------- 棋譜ファイル登録フォーム ----------
   // ビルド識別子: 反映確認用(コンソールとbody属性に出す)
-  const BUILD_ID = "v102 (2026-08-27)";
+  const BUILD_ID = "v135 (2026-08-27)";
+  window.FORCE_COMPACT = false;   // trueの間はヘッダー非表示・タブ縮小を強制(今日の詰将棋のX誘導用)
   document.body.dataset.build = BUILD_ID;
   console.log("盤上勢力一目瞭然 build:", BUILD_ID);
 
@@ -4562,8 +4594,8 @@
         await dbPut({name: META.event, moves: packMoves(MOVES),
           meta: {event: META.event, sente: META.sente, gote: META.gote, end: META.end},
           raw: text, savedAt: Date.now()});
-        toast("マイ棋譜に保存しました（記録タブ）");
-      }catch(e){ toast("マイ棋譜への保存に失敗しました", true); }
+        toast("マイ棋譜に保存しました！（記録タブ）");
+      }catch(e){ toast("マイ棋譜への保存に失敗しました。", true); }
     }
     CURRENT_REF = {kind:"adhoc", ts: Date.now(), name: META.event,
       sub: `${META.sente} vs ${META.gote}・全${MOVES.length}手`,
@@ -4581,7 +4613,7 @@
     resetBoardPrefs();
     document.getElementById("zukan-info").classList.remove("show");
     updateHeader(); render();
-    toast("デモ対局（解説付き・37手）に切り替えました");
+    toast("デモ対局（解説付き・37手）に切り替えました！");
     document.getElementById("board").scrollIntoView({behavior:"smooth", block:"center"});
     LAST_MGROUP = "入門";
     // デモは説明を読む間もなく動きで伝える: 自動再生で開始
@@ -4623,9 +4655,15 @@
       // 同じタブの2度押しでは閉じない(盤面を露出させない)。子画面表示中なら先頭画面へ戻す
       if(tab.classList.contains("on") && !ownPanel.hidden) return;
       closeTabMenus();
-      ["my-box","mysub-box","zukan-box","koma-box","file-box","mirusub-box","about-box"].forEach(id => document.getElementById(id).hidden = true);
+      ["my-box","mysub-box","zukan-box","tsume-box","koma-box","file-box","mirusub-box","about-box"].forEach(id => document.getElementById(id).hidden = true);
       tab.classList.add("on");
       ownPanel.hidden = false;
+      if(typeof alignTreeTrunks === "function"){
+        alignTreeTrunks();
+        requestAnimationFrame(() => { alignTreeTrunks(); requestAnimationFrame(alignTreeTrunks); });
+        setTimeout(alignTreeTrunks, 60);
+        setTimeout(alignTreeTrunks, 180);   // フォント・レイアウト完全確定後の保険
+      }
     });
   });
   const setteiBtn = document.getElementById("btn-settei");
@@ -4658,7 +4696,7 @@
   });
 
   // ---------- メニュー展開中は盤面エリアを隠す(選択に集中) ----------
-  const FOCUS_IDS = ["tab-miru","tab-shiru","tab-tatakau","zukan-box","my-box","mysub-box","mirusub-box","koma-box","file-box","about-box"];
+  const FOCUS_IDS = ["tab-miru","tab-shiru","tab-tatakau","zukan-box","tsume-box","my-box","mysub-box","mirusub-box","koma-box","file-box","about-box"];
   function updateViewerVisibility(){
     const menuOpen = FOCUS_IDS.some(id => !document.getElementById(id).hidden);
     document.getElementById("viewer").hidden = menuOpen;
@@ -4736,14 +4774,14 @@
       const wasOn = fs.some(x => refKey(x) === refKey(CURRENT_REF));
       if(wasOn && !favArmed(refKey(CURRENT_REF))){
         favArm(refKey(CURRENT_REF));
-        toast("もう一度★を押すと「好きな棋譜」から外します");
+        toast("もう一度★を押すと「好きな棋譜」から外します！");
         return;
       }
       favDisarm();
       await toggleFav(CURRENT_REF);
       await updateFavBtn();
-      toast(wasOn ? "好きな棋譜から外しました" : "好きな棋譜に追加しました（記録タブ）");
-    }catch(e){ toast("お気に入りの保存に失敗しました", true); }
+      toast(wasOn ? "好きな棋譜から外しました！" : "好きな棋譜に追加しました（記録タブ）");
+    }catch(e){ toast("お気に入りの保存に失敗しました。", true); }
   });
 
   // ---------- 再生速度の切り替え ----------
@@ -4754,14 +4792,18 @@
     if(PLAY.on){
       if(!PLAY.over && !PLAY.exitArm){
         PLAY.exitArm = true;
-        toast("対局中です。もう一度押すと中断して戻ります");
+        toast("対局中です！もう一度押すと中断して戻ります！");
         setTimeout(() => { PLAY.exitArm = false; }, 3200);
         return;
       }
       PLAY.exitArm = false;
       exitPlay();
-      const t = document.querySelector('.mtab[data-tab="tatakau"]');
-      if(t && !t.classList.contains("on")) t.click();
+      if(TSUME_FROM){
+        openTsumeFolder(TSUME_FROM);   // 出身の詰将棋フォルダ一覧へ戻る
+      }else{
+        const t = document.querySelector('.mtab[data-tab="tatakau"]');
+        if(t && !t.classList.contains("on")) t.click();
+      }
       return;
     }
     if(CURRENT_SRC === "zukan"){
@@ -4814,15 +4856,16 @@
 
   // ---------- トースト通知(非ブロッキング) ----------
   let toastTimer = null;
-  function toast(msg, isErr){
+  function toast(msg, isErr, ms){
     const t = document.getElementById("toast");
     let m = String(msg).trim();
     if(!/[。！？!?]$/.test(m)) m += "。";          // 文末に句点を保証
     m = m.replace(/([。！？])(?!$)/g, "$1\n");     // 文ごとに改行
+    m = m.replace(/(・・・+)(?!$|\n)/g, "$1\n");     // 「・・・」の後でも改行
     t.textContent = m;
     t.className = isErr ? "show err" : "show";
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { t.className = ""; }, isErr ? 4000 : 2400);
+    toastTimer = setTimeout(() => { t.className = ""; }, ms != null ? ms : (isErr ? 2000 : 1000));
   }
 
   // ---------- シークバー ----------
@@ -5343,7 +5386,12 @@
     if(!PLAY.on){ playbarEl.hidden = true; return; }
     playbarEl.hidden = false;
     if(PLAY.over){
-      playbarEl.innerHTML = `<span id="pb-msg">対局終了</span>
+      const tsumeBtns = PLAY.tsume != null
+        ? `<button class="pb-btn" id="btn-tsume-explain">解説</button>
+           <button class="pb-btn" id="btn-tsume-replay">手順を再生</button>`
+        : "";
+      playbarEl.innerHTML = `<span id="pb-msg">${PLAY.tsume != null ? "詰将棋 終了" : "対局終了"}</span>
+        ${tsumeBtns}
         <button class="pb-btn gold" id="btn-rematch">もう一度</button>
         <button class="pb-btn" id="btn-exitplay">終了する</button>`;
     }else{
@@ -5352,6 +5400,14 @@
     }
   }
   playbarEl.addEventListener("click", e => {
+    if(e.target.id === "btn-tsume-explain"){
+      if(typeof toggleBoardInfo === "function") toggleBoardInfo(true);
+      return;
+    }
+    if(e.target.id === "btn-tsume-replay"){
+      replayTsume();
+      return;
+    }
     if(e.target.id === "btn-resign"){
       if(PLAY.resignArm){
         clearTimeout(PLAY.resignTimer);
@@ -5382,15 +5438,20 @@
   function playRefresh(endLine){
     if(PLAY.moves.length === 0){
       MOVES = []; EVALS = null; step = 0;
+      const tName = PLAY.tsume != null ? (PLAY.todayTsume ? "今日の詰将棋" : TSUME[PLAY.tsume].name) : "";
+      const tLen = PLAY.tsume != null ? (TSUME[PLAY.tsume].len || 1) : 0;
       META = PLAY.tsume != null
-        ? {event:"詰将棋", sente:"あなた", gote:TSUME[PLAY.tsume].name, end:"出題中", sub:(TSUME[PLAY.tsume].len === 3 ? "三手詰" : "一手詰")}
+        ? {event:"詰将棋", sente:"あなた", gote:tName, end:"出題中", sub:`1/${tLen}手目`}
         : {event:"練習対局", sente:"あなた", gote:`AI（${(AI_LEVELS[PLAY.level]||AI_LEVELS.normal).label}）`, end:"対局開始", sub:"対局中"};
     }else{
+      const tName2 = PLAY.tsume != null ? (PLAY.todayTsume ? "今日の詰将棋" : TSUME[PLAY.tsume].name) : "";
+      const tLen2 = PLAY.tsume != null ? (TSUME[PLAY.tsume].len || 1) : 0;
       const parsed = decorateAndFinish(
         PLAY.moves.map(m => m.drop ? {s:m.s, drop:m.drop, to:[...m.to]} : {s:m.s, from:[...m.from], to:[...m.to], promo:m.promo}),
         PLAY.tsume != null
-          ? {event:"詰将棋", sente:"あなた", gote:TSUME[PLAY.tsume].name}
-          : {event:"練習対局", sente:"あなた", gote:`AI（${(AI_LEVELS[PLAY.level]||AI_LEVELS.normal).label}）`}, "", endLine || `対局中・${PLAY.moves.length}手目`);
+          ? {event:"詰将棋", sente:"あなた", gote:tName2, sub:`${Math.min(PLAY.moves.length + 1, tLen2)}/${tLen2}手目`}
+          : {event:"練習対局", sente:"あなた", gote:`AI（${(AI_LEVELS[PLAY.level]||AI_LEVELS.normal).label}）`}, "",
+        endLine || (PLAY.tsume != null ? `${Math.min(PLAY.moves.length + 1, tLen2)}/${tLen2}手目` : `対局中・${PLAY.moves.length}手目`));
       MOVES = parsed.moves; META = parsed.meta; EVALS = null;
       step = MOVES.length;
     }
@@ -5505,6 +5566,45 @@
     PLAY.over = true;
     playRefresh(endLine);
     toast(msg);
+    if(PLAY.tsume != null) buildTsumeExplain(PLAY.tsume);
+  }
+  // 詰将棋の解説をzukan-infoに用意(盤面フリップで表示される)
+  function buildTsumeExplain(i){
+    const q = TSUME[i];
+    const src = document.getElementById("zukan-info");
+    if(!src) return;
+    const lenTxt = (q.len || 1) + "手詰";
+    src.innerHTML = `<span><b>${esc(PLAY.todayTsume ? "今日の詰将棋" : q.name)}</b><span class="pw">${lenTxt}</span>
+      <ul><li>${esc(q.hint)}</li></ul>
+      <small>「手順を再生」で、正解の指し手を盤の上で確認できます。</small></span>`;
+  }
+  // 詰将棋の手順を「観戦モード」に載せる(観るタブと同じシークバー・再生・1手送りが使える)
+  function replayTsume(){
+    if(!PLAY.moves || !PLAY.moves.length) return;
+    const q = TSUME[PLAY.tsume];
+    const savedMoves = PLAY.moves.slice();
+    const name = PLAY.todayTsume ? "今日の詰将棋" : q.name;
+    // 詰将棋の初形をbasePos(観戦用の初期局面)に変換
+    const b = {};
+    for(const k in q.b) b[k] = {...q.b[k]};
+    const basePos = {forView: true, b, hands: {s: [...q.hand], g: []}};
+    // 指し手を観戦用形式に変換
+    const mvs = savedMoves.map(m => m.drop
+      ? {s:m.s, drop:m.drop, to:[...m.to]}
+      : {s:m.s, from:[...m.from], to:[...m.to], promo:m.promo});
+    exitPlay();                          // 対局モードを抜ける(観戦モードのシークバーを出す)
+    BASE_POS = basePos;
+    const parsed = decorateAndFinish(mvs, {event:name, sente:"攻方", gote:"玉方"}, "詰み", `まで${mvs.length}手で詰み`);
+    parsed.basePos = basePos;
+    applyLoaded(parsed);                 // 観るタブと同じ再生UIで表示
+    CURRENT_SRC = "tsume";
+    document.getElementById("board").scrollIntoView({behavior:"smooth", block:"center"});
+    toast("手順を再生します！");
+    // 少し待ってから自動再生を開始(観るタブと同じ再生機構を起動)
+    setTimeout(() => {
+      const bp = document.getElementById("btn-play");
+      if(bp && !timer) bp.click();
+    }, 500);
   }
   // ---------- 詰将棋(一手詰) ----------
   const TSUME = [
@@ -5532,12 +5632,22 @@
     {name:"第6問 支える桂", len:3,
      b:{"1-2":{t:"玉",s:"g"}, "4-2":{t:"桂",s:"s"}},
      hand:["金","銀"],
-     hint:"遠くの桂が打ち込む駒を支えてくれます。まず金で王手、逃げた先を銀で仕留めます"}
+     hint:"遠くの桂が打ち込む駒を支えてくれます。まず金で王手、逃げた先を銀で仕留めます"},
+    {name:"第7問 成桂で呼び込む", len:5, orig:true,
+     b:{"1-4":{t:"玉",s:"g"}, "2-4":{t:"歩",s:"g"}, "4-3":{t:"桂",s:"s"}, "4-4":{t:"金",s:"s"}},
+     hand:["金","銀"],
+     hint:"まず桂を成って王手し、玉を呼び込みます。逃げた玉を銀で押さえ、最後に金を打ってぴたりと詰みます（▲4二成桂→▲4三銀→▲5二金）"}
   ];
   function startTsume(i){
     const q = TSUME[i];
+    // 詰将棋フォルダ画面が開いていればそこへ戻す。それ以外(今日の詰将棋)は戦うタブへ
+    TSUME_FROM = document.getElementById("tsume-box").hidden ? null : TSUME_CUR_FOLDER;
+    PLAY.todayTsume = (TSUME_FROM === null);
+    window.FORCE_COMPACT = PLAY.todayTsume;   // 今日の詰将棋はヘッダー非表示・タブ縮小で始める
+    if(typeof updateHdrVisibility === "function") setTimeout(updateHdrVisibility, 0);
     closeTabMenus();
-    ["my-box","mysub-box","zukan-box","koma-box","file-box","mirusub-box","about-box"].forEach(id => { const el = document.getElementById(id); if(el) el.hidden = true; });
+    // 盤面へ入る前に、開いている全パネル・全タブ画面を閉じる(一覧が背後に残るのを防ぐ)
+    document.querySelectorAll(".panelbox, .tabpanel").forEach(el => { el.hidden = true; });
     PLAY.on = true; PLAY.over = false; PLAY.thinking = false;
     PLAY.resignArm = false; PLAY.exitArm = false;
     PLAY.moves = [];
@@ -5557,7 +5667,7 @@
     clearPlaySel();
     document.body.classList.add("playmode");
     playRefresh();
-    toast(`詰将棋 ${q.name}。${q.len === 3 ? "三手" : "一手"}で玉を詰ませてください`);
+    toast("詰将棋を開始します！");
     setTimeout(() => document.getElementById("board").scrollIntoView({behavior:"smooth", block:"center"}), 60);
   }
   function tsumeIsMate(){
@@ -5580,45 +5690,157 @@
     }
     return replies;
   }
+  // 攻方(先手)が atkMoves 手以内に必ず詰ませられるか(受方最善で判定)
+  function canMateIn(atkMoves){
+    for(const m of legalAllP(PLAY.st, "s", true)){
+      const u = doMoveP(PLAY.st, m);
+      if(!inCheckP(PLAY.st, "g")){ undoMoveP(PLAY.st, u); continue; }  // 王手のみ
+      const replies = legalAllP(PLAY.st, "g", true);
+      if(replies.length === 0){ undoMoveP(PLAY.st, u); return true; }  // 詰み
+      if(atkMoves > 1){
+        const all = replies.every(g => {
+          const ug = doMoveP(PLAY.st, g);
+          const ok = canMateIn(atkMoves - 1);
+          undoMoveP(PLAY.st, ug);
+          return ok;
+        });
+        if(all){ undoMoveP(PLAY.st, u); return true; }
+      }
+      undoMoveP(PLAY.st, u);
+    }
+    return false;
+  }
   function tsumeMove(m){
     const q = TSUME[PLAY.tsume];
+    const total = q.len || 1;                 // 総手数(5手詰なら5)
+    const atkLeft = Math.ceil((total - PLAY.moves.length) / 2);  // この手を含め残り攻方手数
     const und = doMoveP(PLAY.st, m);
     clearPlaySel();
     const check = inCheckP(PLAY.st, "g");
-    if(check && legalAllP(PLAY.st, "g", true).length === 0){
+    if(!check){
+      undoMoveP(PLAY.st, und);
+      playRefresh();
+      toast("詰将棋は王手の連続です！王手になる手を探しましょう！", true, 1000);
+      return;
+    }
+    const replies = legalAllP(PLAY.st, "g", true);
+    if(replies.length === 0){                 // 即詰み
       PLAY.moves.push(m);
       finishPlay(`まで${PLAY.moves.length}手で詰み！`, "正解！お見事です！");
       return;
     }
-    if(!check){
-      undoMoveP(PLAY.st, und);
-      playRefresh();
-      toast("詰将棋は王手の連続です。王手になる手を探しましょう", true);
-      return;
-    }
-    // 王手だが即詰みではない: 三手詰の初手なら「どの応手にも詰みがある」ことを確認
-    if((q.len || 1) >= 3 && PLAY.moves.length === 0){
-      const replies = tsumeForcedReplies();
-      if(replies){
-        const g = replies[Math.floor(Math.random() * replies.length)];
-        PLAY.moves.push(m);
-        doMoveP(PLAY.st, g);
-        PLAY.moves.push(g);
-        playRefresh();
-        toast("相手が受けました。次の一手で仕留めましょう！");
-        return;
+    // この手を指した後、残り手数で必ず詰むか(受方最善で全応手を確認)
+    const forced = replies.every(g => {
+      const ug = doMoveP(PLAY.st, g);
+      const ok = canMateIn(atkLeft - 1);
+      undoMoveP(PLAY.st, ug);
+      return ok;
+    });
+    if(forced){
+      // 正解手: 受方の最善(最長に粘る)応手を選ぶ
+      let best = replies[0];
+      for(const g of replies){
+        const ug = doMoveP(PLAY.st, g);
+        const stillMate = canMateIn(atkLeft - 1);
+        undoMoveP(PLAY.st, ug);
+        if(stillMate){ best = g; break; }
       }
-      undoMoveP(PLAY.st, und);
+      // 自分の手(m)はすでにPLAY.stへ反映済み(und)。まず自分の手だけ見せる
+      PLAY.moves.push(m);
+      PLAY.thinking = true;
       playRefresh();
-      toast("その王手は受けきられてしまいます。別の一手を探しましょう", true);
+      // 少し間を置いてから相手の受けを盤に反映(指している感)
+      setTimeout(() => {
+        doMoveP(PLAY.st, best);
+        PLAY.moves.push(best);
+        PLAY.thinking = false;
+        playRefresh();
+      }, 900);
       return;
     }
     undoMoveP(PLAY.st, und);
     playRefresh();
-    toast("王手ですが、玉に逃げられてしまいます。詰みの一手を探しましょう", true);
+    toast("その王手は受けきられてしまいます・・・別の一手を探しましょう！", true, 1000);
   }
-  [0,1,2,3,4,5].forEach(i => document.getElementById("btn-tsume-" + i)
-    .addEventListener("click", () => setTimeout(() => startTsume(i), 0)));
+  // 旧: 個別ボタン結線 → フォルダ画面の一覧クリックに統合(openTsumeFolder)
+  // ---------- 今日の詰将棋: 日本時間の日付で全員に同じ1問を配信 ----------
+  const TSUME_JST_DAY = () => Math.floor((Date.now() + 9 * 3600000) / 86400000);
+  const TSUME_DAY1 = Math.floor((Date.UTC(2026, 7, 27) + 9 * 3600000) / 86400000);  // 配信第1回 = 2026/8/27(JST)
+  function todayTsumeNo(){ return TSUME_JST_DAY() - TSUME_DAY1 + 1; }               // 出題番号(#1, #2, …)
+  const TODAY_POOL = [6];   // 今日の詰将棋の出題プール(オリジナル問題。今後ここに追加していく)
+  let TSUME_CUR_FOLDER = null;   // 現在開いている詰将棋フォルダ種別
+  // ---------- 詰将棋フォルダ(画面遷移型) ----------
+  const TSUME_ICON = `<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg>`;
+  function tsumeCatLen(i){ return TSUME[i].len || 1; }
+  // 過去の詰将棋: 今日より前に配信された回の問題(重複は除く)
+  function pastTsumeByDate(){
+    const set = [];
+    for(let n = 1; n < todayTsumeNo(); n++){
+      const idx = TODAY_POOL[((n - 1) % TODAY_POOL.length + TODAY_POOL.length) % TODAY_POOL.length];
+      if(!set.includes(idx)) set.push(idx);
+    }
+    return set;
+  }
+  async function pastTsumeIndices(){
+    const set = pastTsumeByDate();
+    try{
+      const served = (await metaGet("tsumeServed")) || [];
+      served.filter(x => x.no < todayTsumeNo()).forEach(x => { if(!set.includes(x.idx)) set.push(x.idx); });
+    }catch(e){}
+    return set;
+  }
+  async function openTsumeFolder(kind){
+    TSUME_CUR_FOLDER = kind;
+    const box = document.getElementById("tsume-box");
+    box.hidden = false;
+    const head = document.getElementById("tsume-head");
+    let title, items, empty = "";
+    if(kind === "t1"){ title = "詰将棋（一手詰）"; items = [0,1,2].filter(i => TSUME[i]); }
+    else if(kind === "t3"){ title = "詰将棋（三手詰）"; items = [3,4,5].filter(i => TSUME[i]); }
+    else { title = "過去の詰将棋"; items = await pastTsumeIndices();
+      empty = "まだ配信済みの問題はありません。日付が変わると、前日までの「今日の詰将棋」がここに並びます。"; }
+    head.innerHTML = `${kind === "past" ? `<svg class="dli" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.5V12l3.2 2"/></svg>` : `<svg class="dli" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg>`}${title}`;
+    document.getElementById("tsume-list").innerHTML = `
+      <div class="tsub">${title}</div>
+      <div class="sublist">
+      ${items.length ? items.map(i => `
+        <div class="gitem zk-row" data-tsume="${i}" role="button" tabindex="0">
+          ${TSUME_ICON}<span class="bl">${esc(TSUME[i].name)}<small>${esc(TSUME[i].hint).slice(0, 30)}…</small></span>
+        </div>`).join("") : `<div class="my-empty my-notecard">${empty}</div>`}
+      </div>`;
+    if(typeof alignTreeTrunks === "function") setTimeout(alignTreeTrunks, 0);
+    if(typeof updateViewerVisibility === "function") updateViewerVisibility();
+  }
+  document.getElementById("btn-folder-t1").addEventListener("click", () => openTsumeFolder("t1"));
+  document.getElementById("btn-folder-t3").addEventListener("click", () => openTsumeFolder("t3"));
+  document.getElementById("btn-folder-past").addEventListener("click", () => openTsumeFolder("past"));
+  let TSUME_FROM = null;   // 問題を開いたときの出身フォルダ("t1"/"t3"/"past")。盤面から戻る先に使う
+  document.getElementById("tsume-list").addEventListener("click", e => {
+    const el = e.target.closest("[data-tsume]");
+    if(el) setTimeout(() => startTsume(+el.dataset.tsume), 0);
+  });
+  function todayTsumeIndex(){
+    const n = todayTsumeNo() - 1;
+    return TODAY_POOL[((n % TODAY_POOL.length) + TODAY_POOL.length) % TODAY_POOL.length];
+  }
+  function refreshTodayTsume(){
+    const ti = todayTsumeIndex();
+    const j = new Date(Date.now() + 9 * 3600000);   // 日本時間の日付
+    const sub = document.getElementById("tsume-today-sub");
+    if(sub) sub.textContent = `${j.getUTCFullYear()}年${j.getUTCMonth()+1}月${j.getUTCDate()}日の出題`;
+    const no = document.getElementById("tsume-today-no");
+    if(no) no.textContent = "#" + todayTsumeNo();
+  }
+  refreshTodayTsume();
+  async function recordTodayServed(){
+    try{
+      const no = todayTsumeNo(), idx = todayTsumeIndex();
+      let served = (await metaGet("tsumeServed")) || [];
+      if(!served.some(x => x.no === no)){ served.push({no, idx}); await metaPut("tsumeServed", served); }
+    }catch(e){}
+  }
+  document.getElementById("btn-tsume-today")
+    .addEventListener("click", () => { refreshTodayTsume(); recordTodayServed(); setTimeout(() => startTsume(todayTsumeIndex()), 0); });
   // 見出しの駒アイコンの実座標(X/Y)を測り、罫線グリッドを縦横ともマス中心に合わせる(実測方式)
   function alignAboutGrid(){
     const box = document.getElementById("about-box");
@@ -5658,7 +5880,7 @@
   function startVsAI(level){
     PLAY.level = level || PLAY.level || "normal";
     closeTabMenus();
-    ["my-box","mysub-box","zukan-box","koma-box","file-box","mirusub-box","about-box"].forEach(id => { const el = document.getElementById(id); if(el) el.hidden = true; });
+    ["my-box","mysub-box","zukan-box","tsume-box","koma-box","file-box","mirusub-box","about-box"].forEach(id => { const el = document.getElementById(id); if(el) el.hidden = true; });
     PLAY.on = true; PLAY.over = false; PLAY.thinking = false;
     PLAY.resignArm = false; PLAY.exitArm = false;
     PLAY.moves = [];
@@ -5675,12 +5897,14 @@
     clearPlaySel();
     document.body.classList.add("playmode");
     playRefresh();
-    toast(`練習対局（${(AI_LEVELS[PLAY.level]||AI_LEVELS.normal).label}）を開始します。あなたが先手です`);
+    toast(`練習対局（${(AI_LEVELS[PLAY.level]||AI_LEVELS.normal).label}）を開始します！あなたが先手です`);
     setTimeout(() => document.getElementById("board").scrollIntoView({behavior:"smooth", block:"center"}), 60);
   }
   function exitPlay(){
     PLAY.on = false; PLAY.over = false; PLAY.thinking = false;
     PLAY.tsume = null;
+    window.FORCE_COMPACT = false;
+    if(typeof updateHdrVisibility === "function") setTimeout(updateHdrVisibility, 0);
     BASE_POS = null;
     clearPlaySel();
     document.body.classList.remove("playmode");
@@ -6021,18 +6245,20 @@
       // どのパネル・タブ画面も開いていない = 盤面が主役の画面
       return ![...document.querySelectorAll(".panelbox, .tabpanel")].some(p => !p.hidden);
     }
+    window.updateHdrVisibility = updateHdrVisibility;
     function updateHdrVisibility(){
       ticking = false;
       const y = window.scrollY || 0;
       const dy = y - lastY;
-      if(dy < -4) gestureHidden = false;   // 上へスクロールしたら通常表示へ戻す
-      // ヘッダー類: 8pxより下で隠し、最上部で再表示(ジェスチャーで隠した場合は維持)
-      const hide = y > 8 || gestureHidden;
+      if(dy < -4 && !window.FORCE_COMPACT) gestureHidden = false;   // 上へスクロールで通常表示へ(強制時は維持)
+      // ヘッダー類: 8pxより下で隠し、最上部で再表示(ジェスチャー/強制で隠した場合は維持)
+      const hide = y > 8 || gestureHidden || window.FORCE_COMPACT;
       hdrTargets.forEach(el => el.classList.toggle("hdr-hide", hide));
       // 下タブ: 下スクロールで縮小、少しでも上スクロールで展開(iOS26のミニマイズ相当)
       if(tabsEl){
         let mini;
-        if(gestureHidden) mini = true;
+        if(window.FORCE_COMPACT) mini = true;
+        else if(gestureHidden) mini = true;
         else if(y <= 8) mini = false;
         else if(dy > 8) mini = true;
         else if(dy < -4) mini = false;
