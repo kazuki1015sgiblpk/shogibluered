@@ -1,0 +1,82 @@
+name: 毎日詰将棋の素材づくり
+
+# 日本時間の朝7時に、翌日配信ぶんの素材（問題図・解答動画・投稿文）を用意する。
+# 公開（dev -> main のマージ）はしない。人が中身を確認してから手で公開する。
+#
+# 素材が「翌日ぶん」なのは、投稿文のURL(#tsume)が開くのが「その日の問題」だから。
+# 前日に用意 → 内容を確認して main へ公開 → 当日に投稿、という順で余裕を持たせる。
+
+on:
+  schedule:
+    - cron: "0 22 * * *"      # 22:00 UTC = 翌07:00 JST
+  workflow_dispatch:
+    inputs:
+      no:
+        description: "出題番号を指定して作り直す（空なら翌日ぶん）"
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-tsume
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+
+      - name: 日本語フォントと ffmpeg を入れる
+        # ランナーには日本語フォントが無く、入れないと盤の駒も見出しも豆腐になる
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-noto-cjk
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: index.html が problems.json と一致しているか確認
+        # ずれていると、素材と実際に配信される問題が食い違う
+        run: python3 tools/tsume/publish.py --check
+
+      - name: 配信ストックの残りを確認
+        continue-on-error: true      # 残り少なくても素材づくりは続ける
+        run: python3 tools/tsume/check_stock.py --min 7
+
+      - name: 素材をつくる
+        run: |
+          if [ -n "${{ inputs.no }}" ]; then
+            node tools/tsume/render_video.js --no "${{ inputs.no }}"
+          else
+            node tools/tsume/render_video.js --tomorrow
+          fi
+
+      - name: 投稿文を実行結果に載せる
+        run: |
+          {
+            echo "## X投稿の下書き"
+            echo
+            for f in dist/movie/*-post.txt; do
+              echo '```'
+              cat "$f"
+              echo '```'
+            done
+            echo
+            echo "添付ファイルは下の Artifacts からダウンロードしてください。"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tsume-assets
+          path: dist/movie/
+          retention-days: 30
+          if-no-files-found: error

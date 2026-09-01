@@ -206,13 +206,17 @@ function writePost(out, t, prob, pngName, mp4Name){
   const arg = (name, def) => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : def; };
   const outDir = path.resolve(ROOT, arg("--out", "dist/movie"));
   const onlyNo = arg("--no", null);
+  const tomorrow = argv.includes("--tomorrow");
 
   // 投稿文の紹介文は problems.json から読む（配信物の index.html には載せていないため）
   const STOCK = JSON.parse(fs.readFileSync(path.join(__dirname, "problems.json"), "utf-8"));
 
   const server = await serve();
   const port = server.address().port;
-  const browser = await chromium.launch({ channel: "chrome" });
+  // 手元では既存のChromeを使い、無ければ(CIなど)Playwright同梱のChromiumで起動する
+  let browser;
+  try{ browser = await chromium.launch({ channel: "chrome" }); }
+  catch(e){ browser = await chromium.launch(); }
   const page = await browser.newPage({
     viewport: { width: VIEW.width, height: VIEW.height },
     deviceScaleFactor: VIEW.scale,
@@ -224,16 +228,17 @@ function writePost(out, t, prob, pngName, mp4Name){
     await page.addScriptTag({ url: "/tools/tsume/solver.js" });
 
     // 対象の出題番号: 指定がなければ「今日より後」の配信予定すべて
-    const targets = await page.evaluate((only) => {
+    const targets = await page.evaluate(({only, tomorrow}) => {
+      const want = tomorrow ? todayTsumeNo() + 1 : (only ? +only : null);
       const list = [];
       for(let n = 1; n <= TSUME_SCHEDULE.length; n++){
-        if(only ? n === +only : n > todayTsumeNo()){
+        if(want ? n === want : n > todayTsumeNo()){
           list.push({no:n, idx:tsumeIndexForNo(n), name:TSUME[tsumeIndexForNo(n)].name,
                      date:tsumeDateLabel(n)});
         }
       }
       return list;
-    }, onlyNo);
+    }, {only: onlyNo, tomorrow});
 
     if(!targets.length){ console.log("対象の出題がありません"); return; }
 
