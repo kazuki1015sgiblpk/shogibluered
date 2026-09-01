@@ -410,6 +410,13 @@
   #toast.show{opacity:1;transform:translate(-50%, -50%)}
   #toast{white-space:pre-line;text-align:center;line-height:1.7}
   #toast.err{border-color:var(--sente)}
+  #toast.hold{pointer-events:auto;padding-right:38px !important}
+  #toast .tclose{
+    position:absolute;top:4px;right:6px;width:30px;height:30px;
+    background:none;border:none;color:var(--sub);font-size:20px;line-height:1;
+    padding:0;cursor:pointer;font-family:inherit;
+  }
+  #toast .tclose:hover{color:var(--ink)}
 
   .controls{display:flex;align-items:center;justify-content:center;gap:10px;margin:16px 0 4px;flex-wrap:wrap}
   .controls button{
@@ -1213,7 +1220,10 @@
     .tree > *, .tree .sublist > *, .tree .gitem{transform-origin:left center}
     #toast{border-radius:18px !important;padding:12px 26px !important;
       width:max-content;max-width:min(600px, 94vw) !important}
-    #toast.show{animation:toastpop .34s cubic-bezier(.34,1.56,.64,1)}
+    /* animation と transition が同時に transform を動かすと、終了時に値が競合して
+       画面が小刻みに揺れる。表示中は transform を animation だけに任せる。
+       跳ね返りも強すぎたので控えめにする。 */
+    #toast.show{animation:toastpop .34s cubic-bezier(.22,1.2,.36,1);transition:opacity .25s}
     @keyframes toastpop{
       0%{opacity:0;transform:translate(-50%, calc(-50% + 10px)) scale(.9)}
       100%{opacity:1;transform:translate(-50%,-50%) scale(1)}
@@ -4863,7 +4873,22 @@
     t.textContent = m;
     t.className = isErr ? "show err" : "show";
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { t.className = ""; }, ms != null ? ms : (isErr ? 2000 : 1000));
+    if(ms !== 0){    // ms:0 は「自動で消さない」
+      toastTimer = setTimeout(() => { t.className = ""; }, ms != null ? ms : (isErr ? 2000 : 1000));
+    }
+  }
+  // 閉じるまで残るトースト。詰将棋の答えのように、読むのに時間がかかる文言で使う
+  function toastHold(msg, isErr){
+    toast(msg, isErr, 0);
+    const t = document.getElementById("toast");
+    t.classList.add("hold");
+    const b = document.createElement("button");
+    b.className = "tclose";
+    b.type = "button";
+    b.setAttribute("aria-label", "閉じる");
+    b.textContent = "×";
+    b.addEventListener("click", () => { clearTimeout(toastTimer); t.className = ""; });
+    t.appendChild(b);
   }
 
   // ---------- シークバー ----------
@@ -5411,7 +5436,7 @@
         clearTimeout(PLAY.resignTimer);
         PLAY.resignArm = false;
         if(PLAY.tsume != null){
-          finishPlay("降参", `答え：${TSUME[PLAY.tsume].hint}`);
+          finishPlay("降参", `答え：${TSUME[PLAY.tsume].hint}`, true);   // 答えは自分で閉じるまで残す
         }else{
           finishPlay(`まで${PLAY.moves.length}手であなたの投了。AIの勝ち`, "またチャレンジしてください！ありがとうございました！");
         }
@@ -5560,10 +5585,10 @@
       }, wait);
     }, 80);
   }
-  function finishPlay(endLine, msg){
+  function finishPlay(endLine, msg, hold){
     PLAY.over = true;
     playRefresh(endLine);
-    toast(msg);
+    (hold ? toastHold : toast)(msg);
     if(PLAY.tsume != null) buildTsumeExplain(PLAY.tsume);
   }
   // 詰将棋の解説をzukan-infoに用意(盤面フリップで表示される)
@@ -5817,7 +5842,23 @@
     {kind:"t5", len:5, title:"詰将棋（五手詰）", sub:"手順を組み立てる5手詰"},
     {kind:"t7", len:7, title:"詰将棋（七手詰）", sub:"歯ごたえのある7手詰"}
   ];
-  const tsumeIndicesByLen = len => TSUME.map((q, i) => i).filter(i => tsumeCatLen(i) === len);
+  // まだ配信していない問題(先の日付に予約されている問題)はフォルダに出さない。
+  // 配信日が来たら自動的に並ぶので、事前に答えが見えてしまうことがない。
+  function tsumeUnreleased(){
+    const first = new Map();
+    for(let n = 1; n <= TSUME_SCHEDULE.length; n++){
+      const i = TSUME_SCHEDULE[n - 1];
+      if(!first.has(i)) first.set(i, n);
+    }
+    const today = todayTsumeNo();
+    const set = new Set();
+    first.forEach((n, i) => { if(n > today) set.add(i); });   // 初出が明日以降なら未公開
+    return set;
+  }
+  const tsumeIndicesByLen = len => {
+    const hidden = tsumeUnreleased();
+    return TSUME.map((q, i) => i).filter(i => tsumeCatLen(i) === len && !hidden.has(i));
+  };
   // 問題が1問もない手数のフォルダは出さない。
   // ボタンは .tree の直接の子である必要がある(.tree > * が行の高さと枝線を描くため、
   // 包みのdivを挟むとスタイルが当たらない)。そのため「過去の詰将棋」の直前に差し込む。
