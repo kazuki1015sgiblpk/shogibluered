@@ -42,11 +42,11 @@
       return false;
     };
 
-    for(let i = 0; i < atkN; i++) put(pick(ATK_BOARD), "s");
-    for(let i = 0; i < defN; i++) put(pick(DEF_BOARD), "g");
+    for(let i = 0; i < atkN; i++) put(pick(o.atkSet || ATK_BOARD), "s");
+    for(let i = 0; i < defN; i++) put(pick(o.defSet || DEF_BOARD), "g");
 
     const hand = [];
-    for(let i = 0; i < handN; i++) hand.push(pick(ATK_HAND));
+    for(let i = 0; i < handN; i++) hand.push(pick(o.handSet || ATK_HAND));
     return {b, hand};
   }
 
