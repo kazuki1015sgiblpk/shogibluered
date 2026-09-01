@@ -27,6 +27,7 @@ const MIME = {".html":"text/html; charset=utf-8", ".js":"text/javascript; charse
 const HOLD_FIRST = 3.0, HOLD_MOVE = 1.6, HOLD_LAST = 3.4;
 const FPS = 30;
 const VIEW = { width: 540, height: 960, scale: 2 };   // 撮影は1080x1920(縦動画)
+const KANSU = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
 
 function serve(){
   const server = http.createServer((req, res) => {
@@ -40,6 +41,58 @@ function serve(){
     fs.createReadStream(file).pipe(res);
   });
   return new Promise(r => server.listen(0, "127.0.0.1", () => r(server)));
+}
+
+/* SNS向けの見た目に整える（撮影時だけ被せるもので、アプリ本体は変更しない）。
+ * ヘッダー・タブバー・シークバー等を隠し、盤と持ち駒だけを残して、
+ * 上下に見出し帯（日付・手数・アプリのURL）と指し手の字幕を足す。 */
+async function applySnsLayout(page, head, sub){
+  await page.evaluate(({head, sub}) => {
+    if(!document.getElementById("sns-style")){
+      const st = document.createElement("style");
+      st.id = "sns-style";
+      st.textContent = `
+        header, .modetabs, .seek, .transport, .meter, #movestrip, #telop,
+        #kifu-credit, .pieceinfo, #playbar, .tsume-count, .matchinfo2,
+        #toast, #koma-zukan { display:none !important }
+        body{ background:#101216 !important }
+        .wrap{
+          max-width:none !important;
+          min-height:100vh; display:flex; flex-direction:column;
+          justify-content:center; gap:14px; padding:0 12px;
+        }
+        .tray{ height:52px !important; padding:0 6px }
+        .tray .nm{ font-size:15px }
+        .hand .koma{ width:38px !important; height:45px !important }
+        #sns-top{ text-align:center; padding:6px 0 2px }
+        #sns-top .d{ font-size:27px; font-weight:700; letter-spacing:.02em; color:#F0E9D8 }
+        #sns-top .s{ font-size:15px; color:#E8B93E; letter-spacing:.16em; margin-top:4px }
+        #sns-cap{
+          text-align:center; font-size:30px; font-weight:700; min-height:44px;
+          letter-spacing:.04em; font-variant-numeric:tabular-nums;
+        }
+        #sns-cap .n{ color:#6f7681; font-size:19px; margin-right:10px }
+        #sns-bottom{
+          text-align:center; font-size:16px; color:#8b929c; letter-spacing:.1em;
+          padding-bottom:6px;
+        }`;
+      document.head.appendChild(st);
+    }
+    const wrap = document.querySelector(".wrap");
+    // 目印の要素は .wrap の直接の子とは限らないので、直系の子まで辿ってから挿入する
+    const topChild = el => { while(el && el.parentElement !== wrap) el = el.parentElement; return el; };
+    const mk = (id, html, before) => {
+      let el = document.getElementById(id);
+      if(!el){ el = document.createElement("div"); el.id = id; wrap.insertBefore(el, before || null); }
+      el.innerHTML = html;
+      return el;
+    };
+    const gote = topChild(document.querySelector(".tray.gote"));
+    const sente = topChild(document.querySelector(".tray:not(.gote)"));
+    mk("sns-top", `<div class="d">${head}</div><div class="s">${sub}</div>`, gote);
+    mk("sns-cap", "", sente ? sente.nextSibling : null);
+    mk("sns-bottom", "shogi-bluered.com", null);
+  }, {head, sub});
 }
 
 /* 観戦モードに解答手順を載せる。アプリの replayTsume() と同じ手順を踏む
@@ -65,11 +118,32 @@ async function loadSolution(page, idx){
   }, idx);
 }
 
+// 指定の手数まで進め、字幕を差し替える
+async function setPly(page, s){
+  await page.evaluate((n) => {
+    step = n; render();
+    const cap = document.getElementById("sns-cap");
+    if(!cap) return;
+    if(n === 0){ cap.innerHTML = "▲攻方の手番"; cap.style.color = "#e8776a"; return; }
+    const m = MOVES[n - 1];
+    cap.innerHTML = `<span class="n">${n}手目</span>${m.label}`;
+    cap.style.color = m.s === "s" ? "#e8776a" : "#8fb6e8";
+  }, s);
+  await page.waitForTimeout(220);                         // 描画とアニメーションの落ち着きを待つ
+}
+
+// 問題編: 初形だけの画像
+async function shootProblem(page, out){
+  await setPly(page, 0);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  await page.screenshot({ path: out });
+}
+
+// 解答編: 1手ずつ撮る
 async function shoot(page, dir, plies){
   const frames = [];
   for(let s = 0; s <= plies; s++){
-    await page.evaluate((n) => { step = n; render(); }, s);
-    await page.waitForTimeout(220);                       // 描画とアニメーションの落ち着きを待つ
+    await setPly(page, s);
     const file = path.join(dir, `f${String(s).padStart(2, "0")}.png`);
     await page.screenshot({ path: file });
     frames.push({ file, hold: s === 0 ? HOLD_FIRST : (s === plies ? HOLD_LAST : HOLD_MOVE) });
@@ -131,12 +205,23 @@ function encode(frames, out){
     for(const t of targets){
       const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tsume-"));
       const plies = await loadSolution(page, t.idx);
-      const frames = await shoot(page, tmp, plies);
-      const out = path.join(outDir, `tsume-${String(t.no).padStart(3, "0")}.mp4`);
-      encode(frames, out);
+      const kai = `${KANSU[plies] || plies}手詰`;
+      const tag = String(t.no).padStart(3, "0");
+      const png = path.join(outDir, `tsume-${tag}-q.png`);    // 問題編（画像）
+      const mp4 = path.join(outDir, `tsume-${tag}-a.mp4`);    // 解答編（動画）
+
+      // 問題編は狙いが割れないよう問題名を伏せる
+      await applySnsLayout(page, t.date, kai);
+      await shootProblem(page, png);
+      // 解答編は問題名も出す
+      await applySnsLayout(page, t.date, `${kai}　${t.name.replace(/^第\d+問\s*/, "")}`);
+      encode(await shoot(page, tmp, plies), mp4);
       fs.rmSync(tmp, { recursive: true, force: true });
+
       const sec = (HOLD_FIRST + HOLD_MOVE * (plies - 1) + HOLD_LAST).toFixed(1);
-      console.log(`#${t.no} ${t.date} ${t.name} → ${path.relative(ROOT, out)} (${plies}手 / 約${sec}秒)`);
+      console.log(`#${t.no} ${t.date} ${t.name}`);
+      console.log(`   問題図 ${path.relative(ROOT, png)}`);
+      console.log(`   解答編 ${path.relative(ROOT, mp4)} (${plies}手 / ${sec}秒)`);
     }
   } finally {
     await browser.close();
