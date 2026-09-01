@@ -6172,7 +6172,9 @@
       if(!onboarded) await metaPut("onboarded", true);
     }catch(e){ /* プレビュー環境などDB不可時は毎回デモ表示 */ }
 
-    if(!onboarded){
+    // #tsume で「今日の詰将棋」へ直行する(SNSの投稿からワンタップで問題画面に入るため)
+    const toTsume = /^#tsume\b/.test(location.hash);
+    if(!onboarded && !toTsume){
       setTimeout(() => {
         const bp = document.getElementById("btn-play");
         if(!timer && step < MOVES.length && MOVES === SAMPLE_MOVES) bp.click();
@@ -6180,7 +6182,11 @@
     }
     if(onboarded){
       document.getElementById("folder-intro").hidden = true;
-      if(!location.hash.startsWith("#k=")) loadGameById("kisei94-1");
+      if(!location.hash.startsWith("#k=") && !toTsume) loadGameById("kisei94-1");
+    }
+    if(toTsume){
+      // ボタンと同じ経路を通す(出題番号の記録や画面遷移の扱いを二重に書かないため)
+      setTimeout(() => document.getElementById("btn-tsume-today").click(), 0);
     }
   })();
 

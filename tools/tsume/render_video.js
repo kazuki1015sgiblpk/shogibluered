@@ -169,7 +169,7 @@ function encode(frames, out){
     "-crf", "20", "-movflags", "+faststart", out], { stdio: ["ignore", "ignore", "pipe"] });
 }
 
-const SITE_URL = "https://shogi-bluered.com/";
+const SITE_URL = "https://shogi-bluered.com/#tsume";   // 開くと「今日の詰将棋」に直行する
 const HASHTAGS = "#毎日詰将棋 #詰将棋 #将棋";
 const SEP = "ーーーーーーーーーーーーーーーーーーーーーー";
 
