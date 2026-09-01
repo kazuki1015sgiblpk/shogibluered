@@ -169,11 +169,46 @@ function encode(frames, out){
     "-crf", "20", "-movflags", "+faststart", out], { stdio: ["ignore", "ignore", "pipe"] });
 }
 
+const SITE_URL = "https://shogi-bluered.com/";
+const HASHTAGS = "#毎日詰将棋 #詰将棋 #将棋";
+const SEP = "ーーーーーーーーーーーーーーーーーーーーーー";
+
+/* X投稿の下書きを書き出す（投稿はしない）。
+ * 本編＝問題図の画像つき、ぶら下がり＝解答動画つき。
+ * 説明文は problems.json の teaser を使う（hint は答えに触れるため使わない）。 */
+function writePost(out, t, prob, pngName, mp4Name){
+  const teaser = prob.teaser
+    || `${KANSU[prob.len] || prob.len}手詰です。持ち駒は${prob.hand.join("と")}。ぜひ挑戦してみてください。`;
+  const md = t.date.replace(/の詰将棋$/, "");
+  const text = [
+    `【毎日詰将棋】${md}`,
+    teaser,
+    "",
+    "こちらのURLから実際に詰将棋を解けます！",
+    SITE_URL,
+    HASHTAGS,
+    `※画像を添付: ${pngName}`,
+    "",
+    SEP,
+    "以下ぶら下がりポスト",
+    "",
+    "【解答編】",
+    "こちらが正解の動画になります↓",
+    `※動画を添付: ${mp4Name}`,
+    ""
+  ].join("\n");
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, text);
+}
+
 (async () => {
   const argv = process.argv.slice(2);
   const arg = (name, def) => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : def; };
   const outDir = path.resolve(ROOT, arg("--out", "dist/movie"));
   const onlyNo = arg("--no", null);
+
+  // 投稿文の紹介文は problems.json から読む（配信物の index.html には載せていないため）
+  const STOCK = JSON.parse(fs.readFileSync(path.join(__dirname, "problems.json"), "utf-8"));
 
   const server = await serve();
   const port = server.address().port;
@@ -218,10 +253,14 @@ function encode(frames, out){
       encode(await shoot(page, tmp, plies), mp4);
       fs.rmSync(tmp, { recursive: true, force: true });
 
+      const txt = path.join(outDir, `tsume-${tag}-post.txt`);   // X投稿の下書き
+      writePost(txt, t, STOCK.problems[t.idx], path.basename(png), path.basename(mp4));
+
       const sec = (HOLD_FIRST + HOLD_MOVE * (plies - 1) + HOLD_LAST).toFixed(1);
       console.log(`#${t.no} ${t.date} ${t.name}`);
       console.log(`   問題図 ${path.relative(ROOT, png)}`);
       console.log(`   解答編 ${path.relative(ROOT, mp4)} (${plies}手 / ${sec}秒)`);
+      console.log(`   投稿文 ${path.relative(ROOT, txt)}`);
     }
   } finally {
     await browser.close();
