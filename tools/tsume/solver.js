@@ -64,13 +64,14 @@
 
   /* 詰み手順(読み筋)を1本取り出す。玉方は「最も長く粘る応手」を選ぶ。
    * ヒント文を書くときに、実際の手順を確かめるために使う。 */
-  function principalVariation(st, n){
+  function principalVariation(st, n, objs){
     const line = [];
     let depth = n;
     while(depth > 0){
       const best = atkMate(st, depth, false)[0];
       if(!best) break;
       line.push(mvStr(st, best));
+      if(objs) objs.push(JSON.parse(JSON.stringify(best)));
       doMoveP(st, best);
       const replies = legalAllP(st, DEF, true);
       if(!replies.length) break;                  // 詰み上がり
@@ -87,6 +88,7 @@
         if(cost > pickCost){ pickCost = cost; pick = d; }
       }
       line.push(mvStr(st, pick));
+      if(objs) objs.push(JSON.parse(JSON.stringify(pick)));
       doMoveP(st, pick);
       depth -= 2;
     }
@@ -95,6 +97,13 @@
   window.tsumePV = function(q, len){
     const st = buildState(q);
     return principalVariation(st, len || 1);
+  };
+  /* 詰み手順を対局エンジンの指し手形式で返す。
+   * 観戦モード(シークバー付きの再生画面)に載せて動画にするために使う。 */
+  window.tsumeLine = function(q, len){
+    const objs = [];
+    principalVariation(buildState(q), len || 1, objs);
+    return objs;
   };
 
   /* 1問を検証する。

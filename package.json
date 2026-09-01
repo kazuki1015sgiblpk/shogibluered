@@ -1,0 +1,8 @@
+{
+  "name": "shogibluered-tools",
+  "private": true,
+  "description": "詰将棋の作問・検証・動画生成に使う開発用ツール（配信物には含まれない）",
+  "devDependencies": {
+    "playwright": "^1.47.0"
+  }
+}
