@@ -5500,13 +5500,27 @@
       else sq.classList.add("hint", "hs");
     });
   }
+  // その手を指すと王手になるか（実際には指さずに調べる）
+  function movesGiveCheck(m){
+    const und = doMoveP(PLAY.st, m);
+    const c = inCheckP(PLAY.st, "g");
+    undoMoveP(PLAY.st, und);
+    return c;
+  }
   function playBoardTap(r, c){
     if(PLAY.over || PLAY.thinking) return;
     const key = `${r}-${c}`;
     const own = PLAY.st.b[key] && PLAY.st.b[key].s === "s";
     const hit = PLAY.selMoves.filter(m => m.to[0] === r && m.to[1] === c);
     if(hit.length){
-      const m = hit.find(x => x.promo) || hit[0]; // 成れるときは自動で成る
+      let m = hit.find(x => x.promo) || hit[0]; // 成れるときは自動で成る
+      // ただし詰将棋は王手の連続なので、成ると王手にならない場合だけ不成を選ぶ。
+      // (銀は成ると斜め後ろへの利きを失うため、不成が正解になる問題がある。
+      //  自動で成ると正解手を指す手段がなくなり、その問題が解けなくなる)
+      if(PLAY.tsume != null && hit.length > 1 && !movesGiveCheck(m)){
+        const alt = hit.find(x => x !== m && movesGiveCheck(x));
+        if(alt) m = alt;
+      }
       userMove(m);
       return;
     }

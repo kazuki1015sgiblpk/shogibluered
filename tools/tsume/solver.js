@@ -132,6 +132,27 @@
     const roots = atkMate(rootSt, shortest, true);
     if(roots.length > 1) issues.push(`初手が${roots.length}通りある（余詰め）: ${roots.map(m => mvStr(rootSt, m)).join(" / ")}`);
 
+    // アプリは「成れるときは自動で成る」ため、不成が正解の手は選べないことがある。
+    // 成っても王手になる手だと、アプリは成を選び、正解手に到達できず問題が解けなくなる。
+    // (成ると王手にならない場合だけ、アプリ側が不成にフォールバックする)
+    const walk = buildState(q);
+    const lineObjs = [];
+    principalVariation(buildState(q), shortest, lineObjs);
+    for(const m of lineObjs){
+      if(m.s === ATK && m.from && m.promo === false){
+        const canPromote = legalAllP(walk, ATK, true).some(x => x.from &&
+          x.from[0] === m.from[0] && x.from[1] === m.from[1] &&
+          x.to[0] === m.to[0] && x.to[1] === m.to[1] && x.promo);
+        if(canPromote){
+          const u = doMoveP(walk, {...m, promo: true});
+          const stillCheck = inCheckP(walk, DEF);
+          undoMoveP(walk, u);
+          if(stillCheck) issues.push(`${mvStr(walk, m)}は不成が正解だが、アプリは自動で成るため指せない`);
+        }
+      }
+      doMoveP(walk, m);
+    }
+
     return {
       ok: issues.length === 0,
       shortest,
