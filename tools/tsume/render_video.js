@@ -241,14 +241,14 @@ function writePost(out, t, prob, pngName, mp4Name){
     "こちらのURLから実際に詰将棋を解けます！",
     SITE_URL,
     HASHTAGS,
-    `※画像を添付: ${pngName}`,
+    `※このフォルダの「${pngName}」を添付`,
     "",
     SEP,
     "以下ぶら下がりポスト",
     "",
     "【解答編】",
     "こちらが正解の動画になります↓",
-    `※動画を添付: ${mp4Name}`,
+    `※このフォルダの「${mp4Name}」を添付`,
     ""
   ].join("\n");
   fs.mkdirSync(path.dirname(out), { recursive: true });
@@ -287,8 +287,10 @@ function writePost(out, t, prob, pngName, mp4Name){
       const list = [];
       for(let n = 1; n <= TSUME_SCHEDULE.length; n++){
         if(want ? n === want : n > todayTsumeNo()){
+          const d = tsumeDateOfNo(n);      // 9時間ずらした軸なので UTC の日付が日本時間の日付
+          const iso = `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`;
           list.push({no:n, idx:tsumeIndexForNo(n), name:TSUME[tsumeIndexForNo(n)].name,
-                     date:tsumeDateLabel(n)});
+                     date:tsumeDateLabel(n), iso});
         }
       }
       return list;
@@ -300,9 +302,10 @@ function writePost(out, t, prob, pngName, mp4Name){
       const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tsume-"));
       const plies = await loadSolution(page, t.idx);
       const kai = `${KANSU[plies] || plies}手詰`;
-      const tag = String(t.no).padStart(3, "0");
-      const png = path.join(outDir, `tsume-${tag}-q.png`);    // 問題編（画像）
-      const mp4 = path.join(outDir, `tsume-${tag}-a.mp4`);    // 解答編（動画）
+      // 「今日どれを投稿すればよいか」が一目で分かるよう、配信日のフォルダに入れる
+      const dayDir = path.join(outDir, t.iso);
+      const png = path.join(dayDir, "問題.png");        // 本編に添付する画像
+      const mp4 = path.join(dayDir, "解答動画.mp4");    // ぶら下がりに添付する動画
 
       // 難易度は手数から決める（1手=★1、3手=★2、5手=★3…）
       const stars = "★".repeat(Math.min(5, (plies + 1) / 2)) + "☆".repeat(Math.max(0, 5 - (plies + 1) / 2));
@@ -316,14 +319,12 @@ function writePost(out, t, prob, pngName, mp4Name){
       encode(await shoot(page, tmp, plies), mp4);
       fs.rmSync(tmp, { recursive: true, force: true });
 
-      const txt = path.join(outDir, `tsume-${tag}-post.txt`);   // X投稿の下書き
+      const txt = path.join(dayDir, "投稿文.txt");   // X投稿の下書き
       writePost(txt, t, STOCK.problems[t.idx], path.basename(png), path.basename(mp4));
 
       const sec = (HOLD_FIRST + HOLD_MOVE * (plies - 1) + HOLD_LAST + HOLD_CTA).toFixed(1);
-      console.log(`#${t.no} ${t.date} ${t.name}`);
-      console.log(`   問題図 ${path.relative(ROOT, png)}`);
-      console.log(`   解答編 ${path.relative(ROOT, mp4)} (${plies}手 / ${sec}秒)`);
-      console.log(`   投稿文 ${path.relative(ROOT, txt)}`);
+      console.log(`${t.iso}（#${t.no}） ${t.name}`);
+      console.log(`   → ${path.relative(ROOT, dayDir)}/  問題.png / 解答動画.mp4 (${plies}手 ${sec}秒) / 投稿文.txt`);
     }
   } finally {
     await browser.close();
