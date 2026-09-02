@@ -4820,7 +4820,12 @@
       }
       return;
     }
-    if(CURRENT_SRC === "zukan"){
+    // 詰将棋の「手順を再生」から戻る場合。観戦モードに切り替わって PLAY.on が false に
+    // なるため、上の分岐に入らず、末尾のフォールバックで観るタブへ飛んでしまっていた。
+    if(CURRENT_SRC === "tsume" || CURRENT_SRC === "tatakau"){
+      if(TSUME_FROM) openTsumeFolder(TSUME_FROM);   // 出身の詰将棋フォルダへ
+      else backToTatakau();                          // 今日の詰将棋なら「戦う」へ
+    }else if(CURRENT_SRC === "zukan"){
       closeTabMenus();
       ["my-box","koma-box"].forEach(id => document.getElementById(id).hidden = true);
       document.getElementById("zukan-box").hidden = false;
