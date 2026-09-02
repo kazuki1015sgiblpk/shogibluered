@@ -4666,12 +4666,7 @@
       ["my-box","mysub-box","zukan-box","tsume-box","koma-box","file-box","mirusub-box","about-box"].forEach(id => document.getElementById(id).hidden = true);
       tab.classList.add("on");
       ownPanel.hidden = false;
-      if(typeof alignTreeTrunks === "function"){
-        alignTreeTrunks();
-        requestAnimationFrame(() => { alignTreeTrunks(); requestAnimationFrame(alignTreeTrunks); });
-        setTimeout(alignTreeTrunks, 60);
-        setTimeout(alignTreeTrunks, 180);   // フォント・レイアウト完全確定後の保険
-      }
+      scheduleTrunkAlign();
     });
   });
   const setteiBtn = document.getElementById("btn-settei");
@@ -4795,6 +4790,18 @@
   // ---------- 再生速度の切り替え ----------
   document.getElementById("set-speed").addEventListener("click", () => cycleSpeed());
 
+  // 詰将棋・対局から「戦う」タブへ戻る。
+  // タブが既に選択状態のときは click が空振りして幹線の再計測が走らず、
+  // 古い計測値のまま枝線が途切れて見えるので、その場合も明示的に測り直す。
+  function backToTatakau(){
+    const t = document.querySelector('.mtab[data-tab="tatakau"]');
+    if(!t) return;
+    if(!t.classList.contains("on")){ t.click(); return; }
+    const panel = document.getElementById("tab-tatakau");
+    if(panel) panel.hidden = false;
+    scheduleTrunkAlign();
+  }
+
   // ---------- 対局一覧へ戻る ----------
   document.getElementById("btn-backlist").addEventListener("click", () => {
     if(PLAY.on){
@@ -4809,8 +4816,7 @@
       if(TSUME_FROM){
         openTsumeFolder(TSUME_FROM);   // 出身の詰将棋フォルダ一覧へ戻る
       }else{
-        const t = document.querySelector('.mtab[data-tab="tatakau"]');
-        if(t && !t.classList.contains("on")) t.click();
+        backToTatakau();
       }
       return;
     }
@@ -5454,8 +5460,7 @@
     }
     else if(e.target.id === "btn-exitplay"){
       exitPlay();
-      const t = document.querySelector('.mtab[data-tab="tatakau"]');
-      if(t && !t.classList.contains("on")) t.click();
+      backToTatakau();
     }
   });
   function playRefresh(endLine){
@@ -5935,7 +5940,7 @@
           ${TSUME_ICON}<span class="bl">${esc(it.head)}<small>${it.sub}</small></span>
         </div>`).join("") : `<div class="my-empty my-notecard">${empty}</div>`}
       </div>`;
-    if(typeof alignTreeTrunks === "function") setTimeout(alignTreeTrunks, 0);
+    scheduleTrunkAlign();   // 一覧を差し替えた直後は高さが確定していないので数回測り直す
     if(typeof updateViewerVisibility === "function") updateViewerVisibility();
   }
   renderTsumeFolders();
@@ -6232,6 +6237,15 @@
   })();
 
   // ---------- ツリー幹線を背景のマス罫線にスナップ(v86) ----------
+  // 枝線の幹は実測で位置を決めているため、表示直後の1回だけだと
+  // レイアウトが固まる前の値を掴んで途切れて見えることがある。数回に分けて測り直す。
+  function scheduleTrunkAlign(){
+    if(typeof alignTreeTrunks !== "function") return;
+    alignTreeTrunks();
+    requestAnimationFrame(() => { alignTreeTrunks(); requestAnimationFrame(alignTreeTrunks); });
+    setTimeout(alignTreeTrunks, 60);
+    setTimeout(alignTreeTrunks, 180);   // フォント・レイアウト完全確定後の保険
+  }
   function alignTreeTrunks(){
     document.querySelectorAll(".tree").forEach(tree => {
       // 罫線を描いている要素(パネルなら.pastebox、タブ画面なら.menuboard)を基準にする
