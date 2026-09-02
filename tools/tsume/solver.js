@@ -106,6 +106,65 @@
     return objs;
   };
 
+  // 成・不成の違いだけなら同じ手とみなす（最終手などでは慣例的に許容される）
+  function sameMove(a, b){
+    if(!!a.drop !== !!b.drop) return false;
+    if((a.drop || "") !== (b.drop || "")) return false;
+    if(a.to[0] !== b.to[0] || a.to[1] !== b.to[1]) return false;
+    if(a.from && b.from) return a.from[0] === b.from[0] && a.from[1] === b.from[1];
+    return true;
+  }
+
+  /* 全ての変化について、攻方の手が一手に決まっているかを調べる。
+   * 詰将棋は玉方がどう受けても攻方の手が一意でなければならない。
+   * 初手だけを見ていると、途中の変化に別解（余詰め）が残る。 */
+  function branchIssues(q, want){
+    const st = buildState(q);
+    const issues = [];
+    (function walk(n, path){
+      const cands = atkMate(st, n, true);
+      if(!cands.length) return;
+      const uniq = [];
+      cands.forEach(m => { if(!uniq.some(x => sameMove(x, m))) uniq.push(m); });
+      if(uniq.length > 1 && n > 1){
+        issues.push(`${want - n + 1}手目に別解（${path.join(" ") || "初手"}のあと）: ` +
+                    cands.map(m => mvStr(st, m)).join(" / "));
+      }
+      if(n <= 1) return;
+      const m = cands[0], ml = mvStr(st, m);
+      const u = doMoveP(st, m);
+      for(const d of legalAllP(st, DEF, true)){
+        const dl = mvStr(st, d);
+        const u2 = doMoveP(st, d);
+        walk(n - 2, path.concat([ml, dl]));
+        undoMoveP(st, u2);
+      }
+      undoMoveP(st, u);
+    })(want, []);
+    return issues;
+  }
+
+  /* 攻方の各手について「その局面から残り手数で詰ませられる手」を全部挙げる。
+   * 初手だけでなく途中の手にも別解（余詰め）がないかを見るために使う。
+   * 玉方の応手は読み筋どおりに進める（枝ごとに全部見るとキリがないため）。 */
+  window.tsumeAltMoves = function(q, len){
+    const want = len || 1;
+    const st = buildState(q);
+    const line = [];
+    principalVariation(buildState(q), want, line);
+    const out = [];
+    for(let i = 0; i < line.length; i++){
+      const m = line[i];
+      if(m.s === ATK){
+        const left = want - i;                       // この手を含む残り手数
+        const cands = atkMate(st, left, true);       // 残り手数で詰ませられる攻方の手を全部
+        out.push({ply: i + 1, best: mvStr(st, m), alts: cands.map(c => mvStr(st, c))});
+      }
+      doMoveP(st, m);
+    }
+    return out;
+  };
+
   /* 1問を検証する。
    * declaredLen: 問題が名乗っている手数（TSUME[i].len、既定1）
    * 戻り値の ok が true のときだけ配信してよい。 */
@@ -126,6 +185,9 @@
       return {ok:false, shortest:null, firstMoves:[], nodes, ms:Math.round(performance.now()-t0), issues};
     }
     if(shortest < want) issues.push(`${shortest}手で詰む（宣言は${want}手詰＝早詰み）`);
+
+    // 全ての変化で攻方の手が一意か（初手だけでなく途中の手も見る）
+    branchIssues(q, shortest).forEach(x => issues.push(x));
 
     // 最短手数での初手が一意か（一意でなければ余詰め）
     const rootSt = buildState(q);
