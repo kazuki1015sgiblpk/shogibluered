@@ -40,9 +40,14 @@ jobs:
         with:
           node-version: "20"
           cache: npm
+          cache-dependency-path: tools/package-lock.json
 
+      # 開発用の依存は tools/ に置いている（リポジトリ直下に package.json を置くと
+      # Cloudflare のビルドが不要なインストールを始めて数分かかるため）
       - run: npm ci
+        working-directory: tools
       - run: npx playwright install --with-deps chromium
+        working-directory: tools
 
       - name: index.html が problems.json と一致しているか確認
         # ずれていると、素材と実際に配信される問題が食い違う
