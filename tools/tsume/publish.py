@@ -30,8 +30,18 @@ def build_problems(problems):
         tail = "," if i < len(problems) - 1 else ""
         out += [head + "\n",
                 "     b:{%s},\n" % cells,
-                "     hand:[%s],\n" % hand,
-                "     hint:%s}%s\n" % (js(p["hint"]), tail)]
+                "     hand:[%s],\n" % hand]
+        if p.get("answer"):                      # 「手順を再生」で使う正解手順
+            mv = []
+            for m in p["answer"]:
+                parts = ["s:%s" % js(m["s"])]
+                if "drop" in m: parts.append("drop:%s" % js(m["drop"]))
+                else: parts.append("from:[%d,%d]" % tuple(m["from"]))
+                parts.append("to:[%d,%d]" % tuple(m["to"]))
+                if m.get("promo"): parts.append("promo:true")
+                mv.append("{%s}" % ",".join(parts))
+            out.append("     answer:[%s],\n" % ", ".join(mv))
+        out.append("     hint:%s}%s\n" % (js(p["hint"]), tail))
     out.append("  ];\n")
     return "".join(out)
 
