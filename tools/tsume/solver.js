@@ -126,7 +126,9 @@
       if(!cands.length) return;
       const uniq = [];
       cands.forEach(m => { if(!uniq.some(x => sameMove(x, m))) uniq.push(m); });
-      if(uniq.length > 1 && n > 1){
+      // 最終手も検査する。成/不成の違いだけは uniq の時点で1手に畳んであるので、
+      // ここで残るのは「駒の違う別の詰ませ方」＝本物の余詰め。
+      if(uniq.length > 1){
         issues.push(`${want - n + 1}手目に別解（${path.join(" ") || "初手"}のあと）: ` +
                     cands.map(m => mvStr(st, m)).join(" / "));
       }
