@@ -57,6 +57,11 @@ jobs:
         continue-on-error: true      # 残り少なくても素材づくりは続ける
         run: python3 tools/tsume/check_stock.py --min 7
 
+      - name: 明日以降の問題に余詰め・早詰みがないか検証
+        # 人がブラウザで手作業で検証していたときに、余詰めを2度見逃した。
+        # 配信済みの回は書き換えない決まりなので、まだ差し替えられる回だけを関門にする
+        run: node tools/tsume/verify.js --upcoming
+
       - name: 素材をつくる
         run: |
           if [ -n "${{ inputs.no }}" ]; then
