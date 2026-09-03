@@ -174,16 +174,36 @@ async function setPly(page, s){
   await page.waitForTimeout(220);                         // 描画とアニメーションの落ち着きを待つ
 }
 
-// 問題編: 初形だけの画像
+/* 問題編: 盤と持ち駒だけを切り出した画像。
+ * 見出し帯・字幕・URLは入れない（画像では盤面が主役であるべきなので）。
+ * 持ち駒は詰将棋を解くのに必須なので残す。 */
 async function shootProblem(page, out){
   await setPly(page, 0);
-  await page.evaluate(() => {
-    const n = document.getElementById("sns-note");
-    if(n) n.textContent = "答えは解答編で！";
+  const clip = await page.evaluate(() => {
+    ["sns-top", "sns-cap", "sns-note", "sns-bottom"].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.style.display = "none";
+    });
+    const gote = document.querySelector(".tray.gote");
+    const sente = document.querySelector(".tray:not(.gote)");
+    const board = document.getElementById("board");
+    const rects = [gote, board, sente].filter(Boolean).map(e => e.getBoundingClientRect());
+    const pad = 16;
+    const left = Math.min(...rects.map(r => r.left)) - pad;
+    const top = Math.min(...rects.map(r => r.top)) - pad;
+    const right = Math.max(...rects.map(r => r.right)) + pad;
+    const bottom = Math.max(...rects.map(r => r.bottom)) + pad;
+    return {x: Math.max(0, left), y: Math.max(0, top),
+            width: right - Math.max(0, left), height: bottom - Math.max(0, top)};
   });
   fs.mkdirSync(path.dirname(out), { recursive: true });
-  await page.screenshot({ path: out });
-  await page.evaluate(() => { const n = document.getElementById("sns-note"); if(n) n.textContent = ""; });
+  await page.screenshot({ path: out, clip });
+  await page.evaluate(() => {
+    ["sns-top", "sns-cap", "sns-note", "sns-bottom"].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.style.display = "";
+    });
+  });
 }
 
 // 解答編: 1手ずつ撮る
