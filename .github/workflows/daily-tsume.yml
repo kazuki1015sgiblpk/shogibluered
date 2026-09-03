@@ -65,23 +65,30 @@ jobs:
             node tools/tsume/render_video.js --tomorrow
           fi
 
-      - name: 投稿文を実行結果に載せる
-        run: |
-          {
-            echo "## X投稿の下書き"
-            echo
-            for f in dist/movie/*-post.txt; do
-              echo '```'
-              cat "$f"
-              echo '```'
-            done
-            echo
-            echo "添付ファイルは下の Artifacts からダウンロードしてください。"
-          } >> "$GITHUB_STEP_SUMMARY"
-
+      # 素材の保存を先に行う。表示用の整形で失敗しても素材は必ず残るようにする
+      # （以前、投稿文の表示ステップが失敗して Artifacts がスキップされ、
+      #   その日の素材がまるごと失われた）
       - uses: actions/upload-artifact@v4
         with:
           name: tsume-assets
           path: dist/movie/
           retention-days: 30
           if-no-files-found: error
+
+      - name: 投稿文を実行結果に載せる
+        continue-on-error: true      # 表示だけの処理なので、失敗しても実行全体は止めない
+        run: |
+          {
+            echo "## X投稿の下書き"
+            echo
+            # 素材は配信日フォルダに入る（dist/movie/2026-09-04/投稿文.txt）
+            for f in dist/movie/*/投稿文.txt; do
+              [ -e "$f" ] || continue
+              echo "### $(basename "$(dirname "$f")")"
+              echo '```'
+              cat "$f"
+              echo '```'
+              echo
+            done
+            echo "添付する画像と動画は、上の Artifacts からダウンロードしてください。"
+          } >> "$GITHUB_STEP_SUMMARY"
