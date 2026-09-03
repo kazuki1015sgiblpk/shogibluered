@@ -217,10 +217,14 @@ function encode(frames, out){
   fs.mkdirSync(path.dirname(out), { recursive: true });
   // 最後のコマは宣言の重複で表示時間が二重に効くため、-t で全体の長さを確定させる
   const total = frames.reduce((a, f) => a + f.hold, 0);
+  // 中身はほぼ静止画。既定の設定だと245kbps程度まで削られ、駒の文字や罫線が滲む。
+  // tune=stillimage と低いcrfで、細い線と文字のエッジを残す。
+  // SNSは投稿時に再エンコードするため、元が甘いと二重に劣化する。
   execFileSync("ffmpeg", ["-y", "-f", "concat", "-safe", "0", "-i", listFile,
     "-t", total.toFixed(2),
-    "-vf", `fps=${FPS},format=yuv420p`, "-c:v", "libx264", "-preset", "medium",
-    "-crf", "20", "-movflags", "+faststart", out], { stdio: ["ignore", "ignore", "pipe"] });
+    "-vf", `fps=${FPS},format=yuv420p`, "-c:v", "libx264", "-preset", "slow",
+    "-tune", "stillimage", "-crf", "14", "-movflags", "+faststart", out],
+    { stdio: ["ignore", "ignore", "pipe"] });
 }
 
 const SITE_URL = "https://shogi-bluered.com/#tsume";   // 開くと「今日の詰将棋」に直行する
