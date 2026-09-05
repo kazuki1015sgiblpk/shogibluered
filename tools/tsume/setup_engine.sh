@@ -31,7 +31,12 @@ case "$(uname -s)" in
         https://github.com/komori-n/KomoringHeights.git "$DEST/src" >&2
       # ランナーの CPU に合わせる。github-hosted は AVX2 が使える
       make -C "$DEST/src/source" -j"$(nproc)" normal TARGET_CPU=AVX2 COMPILER=clang++ >&2
-      cp "$DEST/src/source/YaneuraOu-by-gcc" "$BIN"
+      # 実行ファイル名はエンジン名から決まる（KomoringHeights-by-gcc）。
+      # 決め打ちにすると上流で名前が変わったときに気づけないので探す
+      BUILT="$(find "$DEST/src/source" -maxdepth 1 -name '*-by-gcc' -type f | head -1)"
+      [ -n "$BUILT" ] || { echo "ビルド結果が見つかりません" >&2; exit 1; }
+      cp "$BUILT" "$BIN"
+      chmod +x "$BIN"
       rm -rf "$DEST/src"
     fi
     ;;

@@ -75,7 +75,11 @@ jobs:
         # キャッシュする（エンジン自体はリポジトリに含めない。GPLv3・別プロセス呼び出し）
         id: kh
         run: |
-          echo "path=$(tools/tsume/setup_engine.sh)" >> "$GITHUB_OUTPUT"
+          # いったん変数で受けること。echo "path=$(...)" と書くと、中の失敗を
+          # echo が握りつぶしてパスが空のまま次のステップへ進んでしまう
+          P="$(tools/tsume/setup_engine.sh)"
+          [ -x "$P" ] || { echo "エンジンを用意できませんでした: '$P'"; exit 1; }
+          echo "path=$P" >> "$GITHUB_OUTPUT"
 
       - name: 同じ問題を別実装の詰将棋エンジンでも検証
         # verify.js はアプリ本体の指し手生成を使うので、その実装自体の
