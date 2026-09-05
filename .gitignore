@@ -7,3 +7,4 @@ dist/
 # 第二検証器のエンジン本体と Python 環境（リポジトリには含めない）
 tools/engines/
 tools/.venv/
+tools/tsume/__pycache__/
