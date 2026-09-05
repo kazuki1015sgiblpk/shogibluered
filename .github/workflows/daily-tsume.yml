@@ -75,7 +75,7 @@ jobs:
         # キャッシュする（エンジン自体はリポジトリに含めない。GPLv3・別プロセス呼び出し）
         id: kh
         run: |
-          echo "path=$(tools/tsume/setup_engine.sh | tail -1)" >> "$GITHUB_OUTPUT"
+          echo "path=$(tools/tsume/setup_engine.sh)" >> "$GITHUB_OUTPUT"
 
       - name: 同じ問題を別実装の詰将棋エンジンでも検証
         # verify.js はアプリ本体の指し手生成を使うので、その実装自体の
