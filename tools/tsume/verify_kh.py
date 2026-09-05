@@ -20,8 +20,10 @@ import shogi
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
-ENGINE = os.path.join(ROOT, "tools", "engines", "kh", "mac", "KomoringHeights",
-                      "KomoringHeights-mac-clang++-14-normal-M1")
+# エンジンの場所。CI では Linux 版をビルドして置くので、環境変数で差し替えられるようにする
+ENGINE = os.environ.get("KH_ENGINE") or os.path.join(
+    ROOT, "tools", "engines", "kh", "mac", "KomoringHeights",
+    "KomoringHeights-mac-clang++-14-normal-M1")
 JST  = datetime.timezone(datetime.timedelta(hours=9))
 DAY1 = datetime.date(2026, 8, 27)
 
@@ -38,6 +40,15 @@ def def_hand(b, atk_hand):
     for t in atk_hand:
         if t in rest: rest[t] -= 1
     return rest
+
+
+def defender_in_check(q):
+    """初形で玉方に王手がかかっていないか。かかっていれば詰将棋として成立しない。
+
+    python-shogi の is_check() は手番側を見る。詰将棋では手番が攻方（玉を持たない）
+    なので、そのまま呼んでも玉方の王手は拾えない。手番を玉方にした局面で調べる。
+    """
+    return shogi.Board(sfen(q).replace(" b ", " w ", 1)).is_check()
 
 
 def sfen(q):
@@ -159,6 +170,8 @@ def check_problem(eng, q, want):
         for d in list(board.legal_moves):     # 玉方の応手を全部たどる
             walk(moves + [best[0], d.usi()], n - 2)
 
+    if defender_in_check(q):
+        return ["初形で玉方に王手がかかっている（詰将棋として成立しない）"]
     best, _ = eng.mate(base)
     if best is None:
         return ["詰まない"]
@@ -174,7 +187,9 @@ def main():
     argv = sys.argv[1:]
     only_upcoming = "--upcoming" in argv
     if not os.path.exists(ENGINE):
-        print("エンジンが見つかりません: %s" % ENGINE); return 2
+        print("エンジンが見つかりません: %s" % ENGINE)
+        print("tools/tsume/setup_engine.sh で用意してください")
+        return 2
 
     doc = json.load(io.open(os.path.join(HERE, "problems.json"), encoding="utf-8"))
     today_no = (datetime.datetime.now(JST).date() - DAY1).days + 1

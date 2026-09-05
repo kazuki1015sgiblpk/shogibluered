@@ -36,6 +36,12 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg fonts-noto-cjk
 
+      - name: KomoringHeights のビルド結果を使い回す
+        uses: actions/cache@v4
+        with:
+          path: tools/engines
+          key: kh-engine-v1.1.0-${{ runner.os }}
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -57,10 +63,27 @@ jobs:
         continue-on-error: true      # 残り少なくても素材づくりは続ける
         run: python3 tools/tsume/check_stock.py --min 7
 
-      - name: 明日以降の問題に余詰め・早詰みがないか検証
+      - name: 明日以降の問題に余詰め・早詰みがないか検証（アプリの指し手生成で）
         # 人がブラウザで手作業で検証していたときに、余詰めを2度見逃した。
         # 配信済みの回は書き換えない決まりなので、まだ差し替えられる回だけを関門にする
         run: node tools/tsume/verify.js --upcoming
+
+      - name: KomoringHeights を用意する
+        # Linux 版のバイナリ配布がないのでソースからビルドする。ビルドは数分かかるため
+        # キャッシュする（エンジン自体はリポジトリに含めない。GPLv3・別プロセス呼び出し）
+        id: kh
+        run: |
+          echo "path=$(tools/tsume/setup_engine.sh | tail -1)" >> "$GITHUB_OUTPUT"
+
+      - name: 同じ問題を別実装の詰将棋エンジンでも検証
+        # verify.js はアプリ本体の指し手生成を使うので、その実装自体の
+        # 思い違いには気づけない。まったく別の実装で突き合わせる
+        env:
+          KH_ENGINE: ${{ steps.kh.outputs.path }}
+        run: |
+          python3 -m venv tools/.venv
+          tools/.venv/bin/pip install -q -r tools/requirements.txt
+          tools/.venv/bin/python tools/tsume/verify_kh.py --upcoming
 
       - name: 素材をつくる
         run: |

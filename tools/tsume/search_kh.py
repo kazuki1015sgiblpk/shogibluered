@@ -12,7 +12,7 @@ KomoringHeights に任せると桁違いに速い。
 """
 import json, io, os, sys, random, datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from verify_kh import Engine, sfen, check_problem
+from verify_kh import Engine, sfen, check_problem, defender_in_check
 import shogi
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -68,10 +68,9 @@ def main():
             tried += 1
             q = random_problem()
             try:
-                board = shogi.Board(sfen(q))
+                if defender_in_check(q): continue   # 初形で玉方に王手はかかっていてはいけない
             except Exception:
                 continue
-            if board.is_check(): continue          # 初形で王手はかかっていてはいけない
             best, _ = eng.mate(sfen(q), ms=1500)
             if best is None or len(best) != want_len: continue
             if not hand_all_used(q, best): continue
