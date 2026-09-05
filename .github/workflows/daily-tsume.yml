@@ -11,7 +11,9 @@ on:
     - cron: "0 22 * * *"      # 22:00 UTC = 翌07:00 JST
   workflow_dispatch:
     inputs:
-      no:
+      # 入力名を "no" にしないこと。YAML では no が真偽値 false と解釈され、
+      # 入力名そのものが壊れて指定できなくなる
+      number:
         description: "出題番号を指定して作り直す（空なら翌日ぶん）"
         required: false
 
@@ -87,8 +89,8 @@ jobs:
 
       - name: 素材をつくる
         run: |
-          if [ -n "${{ inputs.no }}" ]; then
-            node tools/tsume/render_video.js --no "${{ inputs.no }}"
+          if [ -n "${{ inputs.number }}" ]; then
+            node tools/tsume/render_video.js --no "${{ inputs.number }}"
           else
             node tools/tsume/render_video.js --tomorrow
           fi
