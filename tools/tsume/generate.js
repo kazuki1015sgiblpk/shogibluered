@@ -52,7 +52,7 @@
 
   // 攻方が動く前から王手がかかっている局面は詰将棋として成立しない
   function alreadyCheck(q){
-    const st = {b:{}, hands:{s:[...q.hand], g:[]}};
+    const st = {b:{}, hands:{s:[...q.hand], g:[]}};   // 王手判定だけなので持ち駒は不要
     for(const k in q.b) st.b[k] = {...q.b[k]};
     return inCheckP(st, "g");
   }

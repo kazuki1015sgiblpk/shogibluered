@@ -4423,6 +4423,8 @@
     resetBoardPrefs();
     BASE_POS = {forView:true, b:{}, hands:{s:[...q.hand], g:[]}};
     for(const k in q.b) BASE_POS.b[k] = {...q.b[k]};
+    BASE_POS.hands.g = tsumeDefHand(BASE_POS.b, q.hand);
+    BASE_POS.restHandG = true;
     let parsed;
     try{
       parsed = decorateAndFinish(
@@ -4971,7 +4973,10 @@
     return {b, hands, last};
   }
 
-  function renderHand(el, arr, side){
+  function renderHand(el, arr, side, asRest){
+    // 詰将棋の玉方は「盤上と攻方の持ち駒を除いた残り全部」。一枚ずつ並べると
+    // 30枚近くになって盤が読めなくなるので、慣例どおり文言だけ出す
+    if(asRest){ el.innerHTML = `<span class="empty">残り全部</span>`; return; }
     el.innerHTML = arr.length
       ? arr.map(t => `<span class="koma">${pieceHtml(t, side)}</span>`).join("")
       : `<span class="empty">なし</span>`;
@@ -5059,12 +5064,13 @@
       cell.appendChild(d);
     });
     drawLinks(null);
+    const restG = !!(BASE_POS && BASE_POS.restHandG);   // 詰将棋: 玉方は「残り全部」
     if(FLIPPED){
       renderHand(handG, hands.s, "s");
-      renderHand(handS, hands.g, "g");
+      renderHand(handS, hands.g, "g", restG);
     }else{
       renderHand(handS, hands.s, "s");
-      renderHand(handG, hands.g, "g");
+      renderHand(handG, hands.g, "g", restG);
     }
     const nmTop = document.getElementById("tray-nm-g"), nmBot = document.getElementById("tray-nm-s");
     nmTop.textContent = FLIPPED ? META.sente : META.gote;
@@ -5637,7 +5643,8 @@
     // 詰将棋の初形をbasePos(観戦用の初期局面)に変換
     const b = {};
     for(const k in q.b) b[k] = {...q.b[k]};
-    const basePos = {forView: true, b, hands: {s: [...q.hand], g: []}};
+    const basePos = {forView: true, b, restHandG: true,
+                     hands: {s: [...q.hand], g: tsumeDefHand(b, q.hand)}};
     // 指し手を観戦用形式に変換
     const mvs = savedMoves.map(m => m.drop
       ? {s:m.s, drop:m.drop, to:[...m.to]}
@@ -5751,6 +5758,19 @@
      hint:"初手は銀を玉の頭に打つ王手。玉が逃げたら飛車を順に成っていきましょう"}
   ];
   /* <</TSUME:problems>> */
+  /* 詰将棋の慣例: 玉方の持ち駒は「全部の駒から、盤上の駒と攻方の持ち駒を引いた残り全部」。
+   * 玉方に持ち駒を持たせないと、遠くからの王手に対する合駒(あいごま)の受けを
+   * 読み落とし、本当は詰まない問題を「詰む」と判定してしまう。 */
+  const TSUME_PIECE_TOTAL = {"歩":18, "香":4, "桂":4, "銀":4, "金":4, "角":2, "飛":2};
+  function tsumeDefHand(b, atkHand){
+    const rest = {...TSUME_PIECE_TOTAL};
+    for(const k in b){ const t = b[k].t; if(rest[t] != null) rest[t]--; }  // 成駒も元の駒種で数える
+    (atkHand || []).forEach(t => { if(rest[t] != null) rest[t]--; });
+    const out = [];
+    for(const t of ["飛","角","金","銀","桂","香","歩"])
+      for(let n = 0; n < rest[t]; n++) out.push(t);
+    return out;
+  }
   function startTsume(i){
     const q = TSUME[i];
     // 詰将棋フォルダ画面が開いていればそこへ戻す。それ以外(今日の詰将棋)は戦うタブへ
@@ -5767,9 +5787,12 @@
     PLAY.tsume = i;
     PLAY.st = {b:{}, hands:{s:[...q.hand], g:[]}};
     for(const k in q.b) PLAY.st.b[k] = {...q.b[k]};
+    PLAY.st.hands.g = tsumeDefHand(PLAY.st.b, q.hand);
     resetBoardPrefs();
     BASE_POS = {b:{}, hands:{s:[...q.hand], g:[]}};
     for(const k in q.b) BASE_POS.b[k] = {...q.b[k]};
+    BASE_POS.hands.g = tsumeDefHand(BASE_POS.b, q.hand);
+    BASE_POS.restHandG = true;
     CURRENT_SRC = "tatakau"; CURRENT_REF = null;
     const ziEl = document.getElementById("zukan-info");
     if(ziEl){ ziEl.classList.remove("show"); ziEl.innerHTML = ""; }  // 前の棋譜の説明を消去

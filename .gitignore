@@ -3,3 +3,7 @@
 node_modules/
 tools/node_modules/
 dist/
+
+# 第二検証器のエンジン本体と Python 環境（リポジトリには含めない）
+tools/engines/
+tools/.venv/

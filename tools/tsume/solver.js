@@ -16,8 +16,8 @@
   function buildState(q){
     const b = {};
     for(const k in q.b) b[k] = {...q.b[k]};
-    // 玉方の持ち駒はアプリの対局開始時と同じく空にする（アプリの挙動に合わせる）
-    return {b, hands:{s:[...q.hand], g:[]}};
+    // 玉方の持ち駒は詰将棋の慣例どおり「残り全部」。合駒の受けを読むために必要
+    return {b, hands:{s:[...q.hand], g:tsumeDefHand(b, q.hand)}};
   }
 
   // 攻方の手番。n手以内（nは奇数）に詰むなら、その初手の配列を返す
