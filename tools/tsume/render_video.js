@@ -144,7 +144,10 @@ async function loadSolution(page, idx){
     const moves = tsumeLine(q, q.len || 1);
     const b = {};
     for(const k in q.b) b[k] = {...q.b[k]};
-    const basePos = {forView: true, b, hands: {s: [...q.hand], g: []}};
+    // 玉方の持ち駒は詰将棋の慣例どおり「残り全部」。restHandG を立てると
+    // トレーには一枚ずつ並べず「残り全部」とだけ出る（アプリ本体と同じ扱い）
+    const basePos = {forView: true, b, restHandG: true,
+                     hands: {s: [...q.hand], g: tsumeDefHand(b, q.hand)}};
     const mvs = moves.map(m => m.drop
       ? {s:m.s, drop:m.drop, to:[...m.to]}
       : {s:m.s, from:[...m.from], to:[...m.to], promo:m.promo});
