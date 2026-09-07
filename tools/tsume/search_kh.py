@@ -55,6 +55,14 @@ def hand_all_used(q, pv):
     return all(letters[t] in drops for t in set(q["hand"]))
 
 
+def save(found, want_len):
+    """見つかるたびに書き出す。最後にまとめて書くと、途中で止めた時に全部失う"""
+    out = os.path.join(ROOT, "dist", "kh-candidates-%d.json" % want_len)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    io.open(out, "w", encoding="utf-8").write(json.dumps(found, ensure_ascii=False, indent=1))
+    return out
+
+
 def main():
     a = sys.argv[1:]
     want_len = int(a[a.index("--len") + 1]) if "--len" in a else 5
@@ -77,15 +85,13 @@ def main():
             issues = check_problem(eng, q, want_len)
             if issues: continue
             found.append({"q": q, "pv": best})
+            save(found, want_len)                  # 途中で止めても残るように都度書き出す
             print("  %d試行 / 候補 %d件  %s" % (tried, len(found), " ".join(best)))
             sys.stdout.flush()
     finally:
         eng.close()
 
-    out = os.path.join(ROOT, "dist", "kh-candidates-%d.json" % want_len)
-    os.makedirs(os.path.dirname(out), exist_ok=True)
-    prev = json.load(io.open(out, encoding="utf-8")) if os.path.exists(out) else []
-    io.open(out, "w", encoding="utf-8").write(json.dumps(prev + found, ensure_ascii=False, indent=1))
+    out = save(found, want_len)
     print("%d試行で %d件。%s に書き出しました。" % (tried, len(found), os.path.relpath(out, ROOT)))
     return 0 if found else 1
 
