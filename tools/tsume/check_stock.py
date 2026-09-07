@@ -7,6 +7,10 @@
 
   python3 tools/tsume/check_stock.py            # 残り3日未満で失敗
   python3 tools/tsume/check_stock.py --min 7    # しきい値を変える
+
+GitHub Actions では終了コードだけでは気づけない（continue-on-error を付けている
+ぶんジョブが成功扱いになり、通知が飛ばない）。残量を $GITHUB_OUTPUT へ書き出し、
+後続のステップが Issue を立てて知らせる。
 """
 import json, io, os, sys, datetime
 
@@ -35,7 +39,16 @@ def main():
         nxt = by_id.get(schedule[today_no], {})   # 0始まりなので today_no が「翌日」
         print(f"翌日の出題: {nxt.get('name', '不明')}")
 
-    if remaining < threshold:
+    low = remaining < threshold
+    out = os.environ.get("GITHUB_OUTPUT")
+    if out:                                   # 後続ステップが Issue を立てるために使う
+        with io.open(out, "a", encoding="utf-8") as f:
+            f.write("low=%s\n" % ("true" if low else "false"))
+            f.write("remaining=%d\n" % remaining)
+            f.write("last_date=%s\n" % last_date)
+            f.write("threshold=%d\n" % threshold)
+
+    if low:
         print(f"::warning::詰将棋のストックが残り{remaining}日分です。"
               f"problems.json に問題を追加してください。")
         sys.exit(1)

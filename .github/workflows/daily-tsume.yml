@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: read
+  issues: write        # ストックが尽きそうなときに Issue を立てて知らせる
 
 concurrency:
   group: daily-tsume
@@ -62,8 +63,64 @@ jobs:
         run: python3 tools/tsume/publish.py --check
 
       - name: 配信ストックの残りを確認
+        id: stock
         continue-on-error: true      # 残り少なくても素材づくりは続ける
         run: python3 tools/tsume/check_stock.py --min 7
+
+      - name: ストックが少なければ Issue で知らせる
+        # ワークフローのログに ::warning:: を出すだけでは誰も気づけない。
+        # 上のステップは continue-on-error なのでジョブは成功扱いになり、
+        # GitHub の失敗通知メールも飛ばないため。Issue なら通常の通知が届く。
+        if: steps.stock.outputs.low == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="詰将棋のストックが少なくなっています"
+          BODY=$(cat <<'MD'
+          配信できる問題が残りわずかです。`tools/tsume/problems.json` に問題を足してください。
+
+          | | |
+          | --- | --- |
+          | 明日以降の残り | __REMAINING__日分 |
+          | 最後の配信日 | __LAST__ |
+          | 通知のしきい値 | __THRESHOLD__日 |
+
+          尽きると最後の問題を出し続けてしまい、同じ問題が何日も並びます。
+
+          ## 補充のしかた
+
+          ```bash
+          tools/tsume/setup_engine.sh                                        # 検証器を用意
+          tools/.venv/bin/python tools/tsume/search_kh.py --len 5 --want 7    # 候補を探す
+          ```
+
+          候補から選んで `problems.json` の `problems` と `schedule` の末尾に足し、
+          `python3 tools/tsume/publish.py` で `index.html` に反映します。
+          最後に両方の検証器を通してください。
+
+          ```bash
+          node tools/tsume/verify.js
+          tools/.venv/bin/python tools/tsume/verify_kh.py
+          ```
+
+          補充が済んだらこの Issue を閉じてください。次に少なくなったとき、あらためて立ち上がります。
+
+          <sub>この Issue は毎日の素材づくりが自動で作成・更新しています。</sub>
+          MD
+          )
+          BODY="${BODY//__REMAINING__/${{ steps.stock.outputs.remaining }}}"
+          BODY="${BODY//__LAST__/${{ steps.stock.outputs.last_date }}}"
+          BODY="${BODY//__THRESHOLD__/${{ steps.stock.outputs.threshold }}}"
+
+          # 同じ Issue を使い回す。毎日新しく立てると通知が煩わしくなるため
+          NUM=$(gh issue list --state open --search "$TITLE in:title" \
+                  --json number,title -q "[.[] | select(.title==\"$TITLE\")][0].number")
+          if [ -n "$NUM" ] && [ "$NUM" != "null" ]; then
+            gh issue edit "$NUM" --body "$BODY"     # 残量だけ最新にする(通知は飛ばない)
+            echo "既存の Issue #$NUM を更新しました"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi
 
       - name: 明日以降の問題に余詰め・早詰みがないか検証（アプリの指し手生成で）
         # 人がブラウザで手作業で検証していたときに、余詰めを2度見逃した。
