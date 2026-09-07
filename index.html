@@ -1272,30 +1272,21 @@
     -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
   }
 
-  /* 盤の木目テクスチャー: 柾目+淡い照り(テーマ色の上に重ねる) */
+  /* 盤の木目テクスチャー: 柾目+淡い照り(テーマ色の上に重ねる)
+   *
+   * かつては地色を88%だけ不透明にして背面をすりガラスにしていたが、背面の暗い色が
+   * 透けるうえ黒い影も強く、盤の彩度が指定値の半分近く(72.6% -> 37.7%)まで落ちて
+   * 木の色がくすんでいた。透け感より木の色を採る。木目のノイズも灰色がかっていた
+   * ので、暖色寄り・薄めに直す。 */
   .board{
     background:
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='340' height='340'%3E%3Cfilter id='w' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.93 0 0 0 0 0.90 0 0 0 0 0.83 0.16 0 0 0 -0.045'/%3E%3C/filter%3E%3Crect width='340' height='340' filter='url(%23w)'/%3E%3C/svg%3E") left top / 340px 340px repeat,
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='340' height='340'%3E%3Cfilter id='w' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.99 0 0 0 0 0.93 0 0 0 0 0.78 0.10 0 0 0 -0.03'/%3E%3C/filter%3E%3Crect width='340' height='340' filter='url(%23w)'/%3E%3C/svg%3E") left top / 340px 340px repeat,
       radial-gradient(120% 100% at 50% 0%, rgba(255,250,238,.05), transparent 55%),
-      radial-gradient(140% 120% at 50% 118%, rgba(0,0,0,.18), transparent 62%),
+      radial-gradient(140% 120% at 50% 118%, rgba(0,0,0,.07), transparent 62%),
       linear-gradient(180deg, var(--kaya1), var(--kaya2)) !important;
   }
   /* 旧・木目オーバーレイは使わない */
   .board::before{content:none !important}
-  /* 透け感: 地色を少し透過させ、背面をすりガラスに(非対応環境は従来の不透過のまま) */
-  @supports (background: color-mix(in srgb, red 50%, transparent)) {
-    .board{
-      background:
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='340' height='340'%3E%3Cfilter id='w' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.93 0 0 0 0 0.90 0 0 0 0 0.83 0.16 0 0 0 -0.045'/%3E%3C/filter%3E%3Crect width='340' height='340' filter='url(%23w)'/%3E%3C/svg%3E") left top / 340px 340px repeat,
-        radial-gradient(120% 100% at 50% 0%, rgba(255,250,238,.05), transparent 55%),
-        radial-gradient(140% 120% at 50% 118%, rgba(0,0,0,.18), transparent 62%),
-        linear-gradient(180deg,
-          color-mix(in srgb, var(--kaya1) 88%, transparent),
-          color-mix(in srgb, var(--kaya2) 89%, transparent)) !important;
-      -webkit-backdrop-filter:blur(14px) saturate(1.04);
-      backdrop-filter:blur(14px) saturate(1.04);
-    }
-  }
 
   /* 観戦ビューアの遊び: 点線マス目の世界を背景にも・盤の丸み・ボタンのぷに */
   #viewer{
@@ -3053,7 +3044,8 @@
              alt:"rgba(255,255,255,.05)", dark:true},
     kami:   {b1:"#f6f2e9", b2:"#e8e2d2", grid:"rgba(64,50,32,.6)", e1:"#b0a284", e2:"#8e8064",
              alt:"rgba(0,0,0,.05)", dark:false},
-    hinoki: {b1:"#f2e0ad", b2:"#d6b981", grid:"rgba(24,13,3,.68)", e1:"#584322", e2:"#3a2c12",
+    // 木の色が命なので、他の将棋アプリと同程度の濃さにしてある
+    hinoki: {b1:"#f0cf8c", b2:"#d9b06a", grid:"rgba(24,13,3,.68)", e1:"#584322", e2:"#3a2c12",
              alt:"rgba(0,0,0,.02)", dark:false}
   };
   let themeKey = "hinoki";
