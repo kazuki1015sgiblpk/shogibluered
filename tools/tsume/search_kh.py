@@ -12,7 +12,7 @@ KomoringHeights に任せると桁違いに速い。
 """
 import json, io, os, sys, random, datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from verify_kh import Engine, sfen, check_problem, defender_in_check
+from verify_kh import Engine, EngineStuck, sfen, check_problem, defender_in_check
 import shogi
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -56,7 +56,11 @@ def hand_all_used(q, pv):
 
 
 def save(found, want_len):
-    """見つかるたびに書き出す。最後にまとめて書くと、途中で止めた時に全部失う"""
+    """見つかるたびに書き出す。最後にまとめて書くと、途中で止めた時に全部失う。
+
+    この実行で見つけたぶんだけを書く（＝前回の内容は上書きされる）。
+    前回の候補を残したいときは、走らせる前にファイルを退避しておくこと。
+    """
     out = os.path.join(ROOT, "dist", "kh-candidates-%d.json" % want_len)
     os.makedirs(os.path.dirname(out), exist_ok=True)
     io.open(out, "w", encoding="utf-8").write(json.dumps(found, ensure_ascii=False, indent=1))
@@ -79,10 +83,16 @@ def main():
                 if defender_in_check(q): continue   # 初形で玉方に王手はかかっていてはいけない
             except Exception:
                 continue
-            best, _ = eng.mate(sfen(q), ms=1500)
-            if best is None or len(best) != want_len: continue
-            if not hand_all_used(q, best): continue
-            issues = check_problem(eng, q, want_len)
+            # まれにエンジンが固まる。その局面は捨てて、起動し直して探索を続ける
+            # （以前はここで例外が飛んで探索全体が止まっていた）
+            try:
+                best, _ = eng.mate(sfen(q), ms=1500)
+                if best is None or len(best) != want_len: continue
+                if not hand_all_used(q, best): continue
+                issues = check_problem(eng, q, want_len)
+            except EngineStuck as e:
+                print("  %d試行 エンジンを再起動します（%s）" % (tried, e)); sys.stdout.flush()
+                eng.restart(); continue
             if issues: continue
             found.append({"q": q, "pv": best})
             save(found, want_len)                  # 途中で止めても残るように都度書き出す

@@ -77,9 +77,26 @@ def sfen(q):
     return "/".join(rows) + " b " + (hands or "-") + " 1"
 
 
+class EngineStuck(RuntimeError):
+    """エンジンが応答しなくなった。局面によってはまれに固まる"""
+
+
 class Engine:
     """1プロセスを使い回す。局面ごとに起動すると起動時間で潰れる。"""
     def __init__(self, multipv=5, hash_mb=256):
+        self._multipv, self._hash_mb = multipv, hash_mb
+        self._boot()
+
+    def restart(self):
+        """固まったエンジンを捨てて起動し直す"""
+        try:
+            self.p.kill(); self.p.wait(timeout=5)
+        except Exception:
+            pass
+        self._boot()
+
+    def _boot(self):
+        multipv, hash_mb = self._multipv, self._hash_mb
         # 起動直後に落ちることがまれにあるので、生きているのを確かめてから話しかける
         for attempt in range(5):
             self.p = subprocess.Popen([ENGINE], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -90,7 +107,11 @@ class Engine:
         else:
             raise RuntimeError("エンジンを起動できません: %s" % ENGINE)
         self._cmd("usi", "usiok")
-        for o in ("setoption name USI_Hash value %d" % hash_mb,
+        for o in (# 既定の4スレッドだと探索の打ち切り位置が毎回変わり、MultiPV の結果が揺れる。
+                  # 同じ問題を「余詰めあり」と言ったり言わなかったりして関門に使えないため、
+                  # 再現するように1スレッドに固定する
+                  "setoption name Threads value 1",
+                  "setoption name USI_Hash value %d" % hash_mb,
                   "setoption name MultiPV value %d" % multipv,
                   "setoption name PostSearchLevel value MinLength",
                   "setoption name GenerateAllLegalMoves value true"):
@@ -105,7 +126,7 @@ class Engine:
             if not line: break
             lines.append(line.rstrip())
             if line.startswith(until): return lines
-        raise RuntimeError("engine timeout: " + cmd)
+        raise EngineStuck("応答なし: " + cmd)
 
     def mate(self, sfen_pos, moves=(), ms=8000):
         """詰み手順と、根で詰ませられる手を {手: 詰み手数} で返す"""
