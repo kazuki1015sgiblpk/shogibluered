@@ -13,6 +13,21 @@
   const ATK = "s", DEF = "g";
   let nodes = 0;
 
+  /* 将棋にある枚数を超えて駒を使っていないか。
+   * 盤上と攻方の持ち駒を別々に選んで作問していたため、角3枚といった
+   * あり得ない局面ができていた。玉方の持ち駒を「残り」で出す式が負の数を
+   * 0 として扱うので、そのままでは正常な局面に見えてしまう。 */
+  const PIECE_TOTAL = {"歩":18, "香":4, "桂":4, "銀":4, "金":4, "角":2, "飛":2, "玉":2};
+  function pieceOverflow(q){
+    const cnt = {};
+    for(const k in q.b){ const t = q.b[k].t; cnt[t] = (cnt[t] || 0) + 1; }
+    (q.hand || []).forEach(t => { cnt[t] = (cnt[t] || 0) + 1; });
+    const over = [];
+    for(const t in cnt) if(PIECE_TOTAL[t] != null && cnt[t] > PIECE_TOTAL[t])
+      over.push(`${t}が${cnt[t]}枚（実際は${PIECE_TOTAL[t]}枚）`);
+    return over;
+  }
+
   function buildState(q){
     const b = {};
     for(const k in q.b) b[k] = {...q.b[k]};
@@ -175,6 +190,11 @@
     nodes = 0;
     const t0 = performance.now();
     const issues = [];
+
+    // 駒数が合わない局面は詰将棋として成立しない。先に弾く
+    const over = pieceOverflow(q);
+    if(over.length) return {ok:false, shortest:null, firstMoves:[], nodes:0,
+                            ms:0, issues:["駒数が合わない: " + over.join("、")]};
 
     // 宣言手数より短い詰みがないか（早詰み）を先に潰す
     let shortest = null;

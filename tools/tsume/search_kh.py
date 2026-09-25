@@ -12,7 +12,8 @@ KomoringHeights に任せると桁違いに速い。
 """
 import json, io, os, sys, random, datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from verify_kh import Engine, EngineStuck, sfen, check_problem, defender_in_check
+from verify_kh import (Engine, EngineStuck, sfen, check_problem,
+                       defender_in_check, piece_overflow)
 import shogi
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -30,12 +31,26 @@ def placeable(t, side, r):
     return True
 
 
+TOTAL = {"歩": 18, "香": 4, "桂": 4, "銀": 4, "金": 4, "角": 2, "飛": 2}
+
+
 def random_problem(atk=(1, 2), dfn=(0, 1), hand=(1, 2)):
+    used = {}                                   # 将棋にある枚数を超えないよう数える
+
+    def take(choices):
+        """まだ残っている駒種から選ぶ。角3枚のような局面を作らないため"""
+        avail = [t for t in choices if used.get(t, 0) < TOTAL[t]]
+        if not avail: return None
+        t = random.choice(avail)
+        used[t] = used.get(t, 0) + 1
+        return t
+
     b = {}
     kr, kc = random.randint(1, 3), random.randint(1, 4)      # 玉は端寄りに
     b["%d-%d" % (kr, kc)] = {"t": "玉", "s": "g"}
 
     def put(t, side):
+        if t is None: return
         for _ in range(12):
             r = max(1, min(9, kr + random.randint(0, 4) - 1))  # 玉の周辺へ寄せる
             c = max(1, min(9, kc + random.randint(0, 5) - 2))
@@ -43,9 +58,10 @@ def random_problem(atk=(1, 2), dfn=(0, 1), hand=(1, 2)):
             b["%d-%d" % (r, c)] = {"t": t, "s": side}
             return
 
-    for _ in range(random.randint(*atk)): put(random.choice(ATK_BOARD), "s")
-    for _ in range(random.randint(*dfn)): put(random.choice(DEF_BOARD), "g")
-    return {"b": b, "hand": [random.choice(ATK_HAND) for _ in range(random.randint(*hand))]}
+    for _ in range(random.randint(*atk)): put(take(ATK_BOARD), "s")
+    for _ in range(random.randint(*dfn)): put(take(DEF_BOARD), "g")
+    hands = [t for t in (take(ATK_HAND) for _ in range(random.randint(*hand))) if t]
+    return {"b": b, "hand": hands}
 
 
 def hand_all_used(q, pv):
@@ -79,6 +95,8 @@ def main():
         while len(found) < want_n and tried < max_try:
             tried += 1
             q = random_problem()
+            if not q["hand"]: continue             # 持ち駒なしは対象外
+            if piece_overflow(q["b"], q["hand"]): continue   # 念のための二重の歯止め
             try:
                 if defender_in_check(q): continue   # 初形で玉方に王手はかかっていてはいけない
             except Exception:

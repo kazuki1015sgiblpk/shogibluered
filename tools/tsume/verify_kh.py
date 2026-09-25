@@ -32,6 +32,20 @@ TOTAL = {"歩":18,"香":4,"桂":4,"銀":4,"金":4,"角":2,"飛":2}
 ORDER = ["飛","角","金","銀","桂","香","歩"]
 
 
+def piece_overflow(b, hand):
+    """将棋にある枚数を超えて駒を使っていないかを調べ、超過分を返す。
+
+    盤上と攻方の持ち駒を別々に選んで作問していたため、角3枚・飛3枚といった
+    あり得ない局面ができていた。玉方の持ち駒を「残り」で計算する式が負の数を
+    0 として扱っていたので、SFEN 上は正常に見えて両方の検証器を素通りしていた。
+    """
+    cnt = {}
+    for p in b.values(): cnt[p["t"]] = cnt.get(p["t"], 0) + 1
+    for t in hand:      cnt[t] = cnt.get(t, 0) + 1
+    limit = dict(TOTAL); limit["玉"] = 2
+    return {t: (n, limit[t]) for t, n in cnt.items() if t in limit and n > limit[t]}
+
+
 def def_hand(b, atk_hand):
     """玉方の持ち駒＝全駒から盤上と攻方の持ち駒を引いた残り（index.html の tsumeDefHand と同じ）"""
     rest = dict(TOTAL)
@@ -191,6 +205,10 @@ def check_problem(eng, q, want):
         for d in list(board.legal_moves):     # 玉方の応手を全部たどる
             walk(moves + [best[0], d.usi()], n - 2)
 
+    over = piece_overflow(q["b"], q["hand"])
+    if over:
+        return ["駒数が合わない: " + "、".join(
+            "%sが%d枚（実際は%d枚）" % (t, n, mx) for t, (n, mx) in sorted(over.items()))]
     if defender_in_check(q):
         return ["初形で玉方に王手がかかっている（詰将棋として成立しない）"]
     best, _ = eng.mate(base)
