@@ -1498,6 +1498,13 @@
       linear-gradient(var(--panel), var(--panel)) padding-box,
       linear-gradient(90deg, #f1a488, #8fbbea) border-box !important;
   }
+  /* 出題を用意できていない日。色枠を外して押せないことを見た目でも示す */
+  #btn-tsume-today.rest{
+    border:2px solid var(--line) !important;
+    background:var(--panel) !important;
+    opacity:.62; cursor:default;
+  }
+  #btn-tsume-today.rest .today-no{ color:var(--sub); border-color:var(--line) }
   .tsume-count{
     margin-left:auto;flex:none;font-size:15px;font-weight:700;color:var(--gold);
     font-family:system-ui,sans-serif;letter-spacing:.02em;
@@ -6016,10 +6023,13 @@
   // ★末尾に追加していくこと。既存要素を書き換えると配信済みの回の問題が遡って変わる。
   const TSUME_SCHEDULE = [6, 6, 6, 6, 6, 6, 7, 9, 10, 12, 8, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39];
   /* <</TSUME:schedule>> */
-  // スケジュールが尽きた日(自動配信が止まった等)は、最後に配信した問題を出し続ける
+  /* スケジュールが尽きた日は null を返し、出題しない。
+   * 以前は最後の要素で打ち切って同じ問題を出し続けていたが、補充が遅れても
+   * 見た目は正常なので誰も気づけず、実際に前日と同じ問題を配信してしまった。
+   * 出題を止めれば、異常がその場で分かる。 */
   function tsumeIndexForNo(n){
-    if(!TSUME_SCHEDULE.length) return null;
-    return TSUME_SCHEDULE[Math.min(Math.max(n, 1), TSUME_SCHEDULE.length) - 1];
+    if(n < 1 || n > TSUME_SCHEDULE.length) return null;
+    return TSUME_SCHEDULE[n - 1];
   }
   let TSUME_CUR_FOLDER = null;   // 現在開いている詰将棋フォルダ種別
   // ---------- 詰将棋フォルダ(画面遷移型) ----------
@@ -6148,20 +6158,34 @@
     const ti = todayTsumeIndex();
     const j = new Date(Date.now() + 9 * 3600000);   // 日本時間の日付
     const sub = document.getElementById("tsume-today-sub");
-    if(sub) sub.textContent = `${j.getUTCFullYear()}年${j.getUTCMonth()+1}月${j.getUTCDate()}日の出題`;
     const no = document.getElementById("tsume-today-no");
+    const card = document.getElementById("btn-tsume-today");
+    if(ti == null){                       // 出題を用意できていない日
+      if(sub) sub.textContent = "本日の出題はお休みです。過去の詰将棋からお選びください";
+      if(no) no.textContent = "—";
+      if(card){ card.disabled = true; card.classList.add("rest"); }
+      return;
+    }
+    if(card){ card.disabled = false; card.classList.remove("rest"); }
+    if(sub) sub.textContent = `${j.getUTCFullYear()}年${j.getUTCMonth()+1}月${j.getUTCDate()}日の出題`;
     if(no) no.textContent = "#" + todayTsumeNo();
   }
   refreshTodayTsume();
   async function recordTodayServed(){
     try{
       const no = todayTsumeNo(), idx = todayTsumeIndex();
+      if(idx == null) return;             // 出題していない日は記録しない
       let served = (await metaGet("tsumeServed")) || [];
       if(!served.some(x => x.no === no)){ served.push({no, idx}); await metaPut("tsumeServed", served); }
     }catch(e){}
   }
-  document.getElementById("btn-tsume-today")
-    .addEventListener("click", () => { refreshTodayTsume(); recordTodayServed(); setTimeout(() => startTsume(todayTsumeIndex()), 0); });
+  document.getElementById("btn-tsume-today").addEventListener("click", () => {
+    refreshTodayTsume();
+    const ti = todayTsumeIndex();
+    if(ti == null){ toast("本日の出題はお休みです。過去の詰将棋からお選びください", false, 2600); return; }
+    recordTodayServed();
+    setTimeout(() => startTsume(ti), 0);
+  });
   // 見出しの駒アイコンの実座標(X/Y)を測り、罫線グリッドを縦横ともマス中心に合わせる(実測方式)
   function alignAboutGrid(){
     const box = document.getElementById("about-box");
