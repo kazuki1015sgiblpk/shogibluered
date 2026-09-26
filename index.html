@@ -4813,6 +4813,7 @@
         return;
       }
       PLAY.exitArm = false;
+      clearToast();
       exitPlay();
       if(TSUME_FROM){
         openTsumeFolder(TSUME_FROM);   // 出身の詰将棋フォルダ一覧へ戻る
@@ -4824,6 +4825,7 @@
     // 詰将棋の「手順を再生」から戻る場合。観戦モードに切り替わって PLAY.on が false に
     // なるため、上の分岐に入らず、末尾のフォールバックで観るタブへ飛んでしまっていた。
     if(CURRENT_SRC === "tsume" || CURRENT_SRC === "tatakau"){
+      clearToast();
       if(TSUME_FROM) openTsumeFolder(TSUME_FROM);   // 出身の詰将棋フォルダへ
       else backToTatakau();                          // 今日の詰将棋なら「戦う」へ
     }else if(CURRENT_SRC === "zukan"){
@@ -4888,6 +4890,15 @@
     if(ms !== 0){    // ms:0 は「自動で消さない」
       toastTimer = setTimeout(() => { t.className = ""; }, ms != null ? ms : (isErr ? 2000 : 1000));
     }
+  }
+  // 画面を離れるときに消す。閉じるボタン付きのトーストは自動では消えないため、
+  // 詰将棋から戻ったあとも「正解です！」が残り続けていた
+  function clearToast(){
+    const t = document.getElementById("toast");
+    if(!t) return;
+    clearTimeout(toastTimer);
+    t.className = "";
+    t.querySelectorAll(".tclose").forEach(b => b.remove());
   }
   // 閉じるまで残るトースト。詰将棋の答えのように、読むのに時間がかかる文言で使う
   function toastHold(msg, isErr){
@@ -6001,14 +6012,14 @@
     const replies = legalAllP(PLAY.st, "g", true);
     if(replies.length === 0){                 // 即詰み
       PLAY.moves.push(m);
-      finishPlay(`まで${PLAY.moves.length}手で詰み！`, "正解！お見事です！");
+      finishPlay(`まで${PLAY.moves.length}手で詰み！`, "正解です！お見事です！");
       return;
     }
     // 最終手で、玉方に残された手が無駄合だけなら詰みとみなす（詰将棋の慣例）
     if(atkLeft === 1 && m.drop !== "歩" && onlyFutileInterpositions(PLAY.st)){
       PLAY.moves.push(m);
       finishPlay(`まで${PLAY.moves.length}手で詰み！`,
-                 "正解！合駒は取れば詰みです（無駄合）", true);
+                 "正解です！合駒は取れば詰みです", true);
       return;
     }
     // 最後の一手は「その場で詰み」でなければならない。ここを通すと、詰みではないが
