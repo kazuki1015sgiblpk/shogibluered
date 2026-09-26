@@ -5955,6 +5955,36 @@
     }
     return false;
   }
+  /* 玉方の応手が「無駄合」だけかを調べる。
+   *
+   * 遠くから王手をかけると、玉方は王手している駒と玉のあいだに駒を打って
+   * 受けられる（合駒）。だが、その合駒を取れば詰む場合、玉は助かっていない。
+   * 詰将棋にはこれを「無駄合」と呼び、手数に数えない慣例がある。
+   * アプリは手数の定義は変えず、対局中の受理だけを慣例に合わせる
+   * （正解手順・解答動画は従来どおり最短手順を見せる）。
+   *
+   * 逃げる手や王手駒を取る手が一つでもあれば本物の受けなので false。 */
+  function onlyFutileInterpositions(st){
+    const replies = legalAllP(st, "g", true);
+    if(!replies.length) return false;              // 応手なし＝すでに詰み。ここでは扱わない
+    for(const g of replies){
+      if(!g.drop) return false;                    // 玉が逃げる・駒を取る＝本物の受け
+      const ug = doMoveP(st, g);
+      // 合駒を取って即詰みになる手があるか
+      let capturable = false;
+      for(const c of legalAllP(st, "s", true)){
+        if(c.to[0] !== g.to[0] || c.to[1] !== g.to[1]) continue;   // その合駒を取る手だけ
+        const uc = doMoveP(st, c);
+        if(inCheckP(st, "g") && legalAllP(st, "g", true).length === 0) capturable = true;
+        undoMoveP(st, uc);
+        if(capturable) break;
+      }
+      undoMoveP(st, ug);
+      if(!capturable) return false;                // 取っても詰まない＝有効な合駒
+    }
+    return true;
+  }
+
   function tsumeMove(m){
     const q = TSUME[PLAY.tsume];
     const total = q.len || 1;                 // 総手数(5手詰なら5)
@@ -5972,6 +6002,13 @@
     if(replies.length === 0){                 // 即詰み
       PLAY.moves.push(m);
       finishPlay(`まで${PLAY.moves.length}手で詰み！`, "正解！お見事です！");
+      return;
+    }
+    // 最終手で、玉方に残された手が無駄合だけなら詰みとみなす（詰将棋の慣例）
+    if(atkLeft === 1 && m.drop !== "歩" && onlyFutileInterpositions(PLAY.st)){
+      PLAY.moves.push(m);
+      finishPlay(`まで${PLAY.moves.length}手で詰み！`,
+                 "正解！合駒は取れば詰みです（無駄合）", true);
       return;
     }
     // 最後の一手は「その場で詰み」でなければならない。ここを通すと、詰みではないが
