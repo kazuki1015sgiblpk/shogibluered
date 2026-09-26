@@ -5487,13 +5487,13 @@
   function playRefresh(endLine){
     if(PLAY.moves.length === 0){
       MOVES = []; EVALS = null; step = 0;
-      const tName = PLAY.tsume != null ? (PLAY.todayTsume ? "今日の詰将棋" : TSUME[PLAY.tsume].name) : "";
+      const tName = PLAY.tsume != null ? tsumeTitle(PLAY.tsume) : "";
       const tLen = PLAY.tsume != null ? (TSUME[PLAY.tsume].len || 1) : 0;
       META = PLAY.tsume != null
         ? {event:"詰将棋", sente:"あなた", gote:tName, end:"出題中", sub:`1/${tLen}手目`}
         : {event:"練習対局", sente:"あなた", gote:`AI（${(AI_LEVELS[PLAY.level]||AI_LEVELS.normal).label}）`, end:"対局開始", sub:"対局中"};
     }else{
-      const tName2 = PLAY.tsume != null ? (PLAY.todayTsume ? "今日の詰将棋" : TSUME[PLAY.tsume].name) : "";
+      const tName2 = PLAY.tsume != null ? tsumeTitle(PLAY.tsume) : "";
       const tLen2 = PLAY.tsume != null ? (TSUME[PLAY.tsume].len || 1) : 0;
       const parsed = decorateAndFinish(
         PLAY.moves.map(m => m.drop ? {s:m.s, drop:m.drop, to:[...m.to]} : {s:m.s, from:[...m.from], to:[...m.to], promo:m.promo}),
@@ -5637,7 +5637,7 @@
     const src = document.getElementById("zukan-info");
     if(!src) return;
     const lenTxt = (q.len || 1) + "手詰";
-    src.innerHTML = `<span><b>${esc(PLAY.todayTsume ? "今日の詰将棋" : q.name)}</b><span class="pw">${lenTxt}</span>
+    src.innerHTML = `<span><b>${esc(tsumeTitle(i))}</b><span class="pw">${lenTxt}</span>
       <ul><li>${esc(q.hint)}</li></ul>
       <small>「手順を再生」で、正解の指し手を盤の上で確認できます。</small></span>`;
   }
@@ -5649,7 +5649,7 @@
     // 何も起きず、間違えたまま終えた場合は間違いが再生されていた。
     const savedMoves = (q.answer && q.answer.length) ? q.answer.slice() : (PLAY.moves || []).slice();
     if(!savedMoves.length) return;
-    const name = PLAY.todayTsume ? "今日の詰将棋" : q.name;
+    const name = tsumeTitle(PLAY.tsume);
     // 詰将棋の初形をbasePos(観戦用の初期局面)に変換
     const b = {};
     for(const k in q.b) b[k] = {...q.b[k]};
@@ -6143,6 +6143,29 @@
   }
   // 問題名から「第N問 」の見出しを外す(過去の詰将棋では日付が見出しになるため)
   const tsumeShortName = i => String(TSUME[i].name).replace(/^第\d+問\s*/, "");
+  // 「今日の詰将棋」の通し番号。配信した問題を初出の順に #1, #2, … と数える。
+  // 配信日で数えると、同じ問題を出した 8/27〜9/1 のぶん番号が飛ぶので、問題ごとに数える。
+  function tsumeSerial(idx){
+    const seen = [];
+    for(const x of TSUME_SCHEDULE){
+      if(!seen.includes(x)) seen.push(x);
+      if(x === idx) return seen.length;
+    }
+    return null;
+  }
+  // その問題を最初に配信した回(配信第何日目か)
+  function tsumeFirstNo(idx){ const k = TSUME_SCHEDULE.indexOf(idx); return k < 0 ? null : k + 1; }
+  // 過去の詰将棋の見出し: 「#1 : 2026年8月27日」
+  function tsumePastTitle(idx){
+    const no = tsumeFirstNo(idx), d = tsumeDateOfNo(no);
+    return `#${tsumeSerial(idx)} : ${d.getUTCFullYear()}年${d.getUTCMonth() + 1}月${d.getUTCDate()}日`;
+  }
+  // 対局中の見出し。今日の詰将棋・過去の詰将棋・手数フォルダで出し分ける
+  function tsumeTitle(i){
+    if(PLAY.todayTsume) return "今日の詰将棋";
+    if(TSUME_FROM === "past" && tsumeFirstNo(i)) return tsumePastTitle(i);
+    return TSUME[i].name;
+  }
   // 過去の詰将棋: 配信済みの回を {idx, no} で返す。同じ問題が複数回出ている場合は初出の回にまとめる。
   async function pastTsumeIndices(){
     const first = new Map();
@@ -6174,7 +6197,7 @@
     else { title = "過去の詰将棋";
       // 過去の詰将棋: 見出しは配信日、説明は問題名
       items = (await pastTsumeIndices())
-        .map(e => ({idx:e.idx, head:tsumeDateLabel(e.no), sub:esc(tsumeShortName(e.idx))}));
+        .map(e => ({idx:e.idx, head:tsumePastTitle(e.idx), sub:""}));
       empty = "まだ配信済みの問題はありません。日付が変わると、前日までの「今日の詰将棋」がここに並びます。"; }
     head.innerHTML = `${kind === "past" ? `<svg class="dli" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.5V12l3.2 2"/></svg>` : `<svg class="dli" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5L17.5 7.1L19 20.5H5L6.5 7.1Z"/><path d="M9 12.4l2.2 2.2 3.8-4"/></svg>`}${title}`;
     document.getElementById("tsume-list").innerHTML = `
@@ -6182,7 +6205,7 @@
       <div class="sublist">
       ${items.length ? items.map(it => `
         <div class="gitem zk-row" data-tsume="${it.idx}" role="button" tabindex="0">
-          ${TSUME_ICON}<span class="bl">${esc(it.head)}<small>${it.sub}</small></span>
+          ${TSUME_ICON}<span class="bl">${esc(it.head)}${it.sub ? `<small>${it.sub}</small>` : ""}</span>
         </div>`).join("") : `<div class="my-empty my-notecard">${empty}</div>`}
       </div>`;
     scheduleTrunkAlign();   // 一覧を差し替えた直後は高さが確定していないので数回測り直す
@@ -6216,7 +6239,7 @@
     }
     if(card){ card.disabled = false; card.classList.remove("rest"); }
     if(sub) sub.textContent = `${j.getUTCFullYear()}年${j.getUTCMonth()+1}月${j.getUTCDate()}日の出題`;
-    if(no) no.textContent = "#" + todayTsumeNo();
+    if(no) no.textContent = "#" + tsumeSerial(ti);   // 過去の詰将棋と同じ通し番号
   }
   refreshTodayTsume();
   async function recordTodayServed(){
