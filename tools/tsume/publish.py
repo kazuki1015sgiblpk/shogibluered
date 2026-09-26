@@ -25,6 +25,7 @@ def build_problems(problems):
         head = "    {name:%s," % js(p["name"])
         if p.get("len", 1) != 1: head += " len:%d," % p["len"]     # 1手詰は既定値なので書かない
         if p.get("orig"): head += " orig:true,"
+        if p.get("level"): head += " level:%d," % p["level"]     # 難易度(星の数)。difficulty.py が付ける
         cells = ", ".join('%s:{t:%s,s:%s}' % (js(k), js(v["t"]), js(v["s"])) for k, v in p["b"].items())
         hand = ",".join(js(h) for h in p["hand"])
         tail = "," if i < len(problems) - 1 else ""
@@ -83,6 +84,10 @@ def main():
         sys.exit("index.html が problems.json と一致していません（publish.py を実行してください）")
     io.open(HTML, "w", encoding="utf-8").write(out)
     print("index.html を更新しました: %d問 / 配信%d回分" % (len(problems), len(schedule)))
+    nolv = [p["id"] for p in problems if not p.get("level")]
+    if nolv:   # 過去の詰将棋に星が出なくなる
+        print("注意: 難易度(level)が付いていない問題があります: %s" % ", ".join(nolv))
+        print("      tools/.venv/bin/python tools/tsume/difficulty.py --write を実行してください")
 
 
 if __name__ == "__main__":

@@ -17,8 +17,10 @@
 1. `problems.json` の `problems` に**末尾追加**する（id は `p008`, `p009`, … と連番）
 2. 検証器にかけて `ok: true` を確認する（下記）
 3. `schedule` の**末尾に**その id を足す＝翌日以降の出題になる
-4. `python3 tools/tsume/publish.py` を実行して `index.html` に反映
-5. コミットして push（Cloudflare が自動デプロイ）
+4. `tools/.venv/bin/python tools/tsume/difficulty.py --write` で難易度（星）を付ける
+   （過去の詰将棋の一覧に出す。付け忘れると星が表示されない）
+5. `python3 tools/tsume/publish.py` を実行して `index.html` に反映
+6. コミットして push（Cloudflare が自動デプロイ）
 
 ## 検証のしかた
 
