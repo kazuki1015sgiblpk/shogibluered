@@ -5434,7 +5434,7 @@
         <button class="pb-btn gold" id="btn-rematch">もう一度</button>
         <button class="pb-btn" id="btn-exitplay">終了する</button>`;
     }else{
-      playbarEl.innerHTML = `<span id="pb-msg" class="${PLAY.thinking ? "think" : ""}">${esc(msg || (PLAY.thinking ? "AIが考えています…" : "あなたの手番です！"))}</span>
+      playbarEl.innerHTML = `<span id="pb-msg" class="${PLAY.thinking ? "think" : ""}">${esc(msg || (PLAY.thinking ? "考えています…" : "あなたの手番です！"))}</span>
         <button class="pb-btn" id="btn-resign">${PLAY.tsume != null ? "降参" : "投了"}</button>`;
     }
   }
