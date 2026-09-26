@@ -6143,7 +6143,7 @@
   }
   // 問題名から「第N問 」の見出しを外す(過去の詰将棋では日付が見出しになるため)
   const tsumeShortName = i => String(TSUME[i].name).replace(/^第\d+問\s*/, "");
-  // 「今日の詰将棋」の通し番号。配信した問題を初出の順に #1, #2, … と数える。
+  // 「今日の詰将棋」の通し番号。配信した問題を初出の順に 第1問, 第2問, … と数える。
   // 配信日で数えると、同じ問題を出した 8/27〜9/1 のぶん番号が飛ぶので、問題ごとに数える。
   function tsumeSerial(idx){
     const seen = [];
@@ -6155,10 +6155,10 @@
   }
   // その問題を最初に配信した回(配信第何日目か)
   function tsumeFirstNo(idx){ const k = TSUME_SCHEDULE.indexOf(idx); return k < 0 ? null : k + 1; }
-  // 過去の詰将棋の見出し: 「#1 : 2026年8月27日」
+  // 過去の詰将棋の見出し: 「第1問 2026年8月27日」
   function tsumePastTitle(idx){
     const no = tsumeFirstNo(idx), d = tsumeDateOfNo(no);
-    return `#${tsumeSerial(idx)} : ${d.getUTCFullYear()}年${d.getUTCMonth() + 1}月${d.getUTCDate()}日`;
+    return `第${tsumeSerial(idx)}問 ${d.getUTCFullYear()}年${d.getUTCMonth() + 1}月${d.getUTCDate()}日`;
   }
   // 対局中の見出し。今日の詰将棋・過去の詰将棋・手数フォルダで出し分ける
   function tsumeTitle(i){
@@ -6239,7 +6239,7 @@
     }
     if(card){ card.disabled = false; card.classList.remove("rest"); }
     if(sub) sub.textContent = `${j.getUTCFullYear()}年${j.getUTCMonth()+1}月${j.getUTCDate()}日の出題`;
-    if(no) no.textContent = "#" + tsumeSerial(ti);   // 過去の詰将棋と同じ通し番号
+    if(no) no.textContent = `第${tsumeSerial(ti)}問`;   // 過去の詰将棋と同じ通し番号
   }
   refreshTodayTsume();
   async function recordTodayServed(){
