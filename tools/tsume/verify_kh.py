@@ -197,6 +197,33 @@ def idle_pieces(eng, q, want):
     return out
 
 
+def mating_moves(eng, base, moves, n):
+    """この局面（攻方の手番）で、n手以内に詰ませられる攻方の手をすべて返す。
+
+    以前は KomoringHeights の MultiPV（候補手を複数挙げる機能）に任せていたが、
+    直前にどの局面を読んだかによって、詰む手を挙げ漏らすことがあった
+    （例: 第46問の最終手 ▲9二桂成。単独で聞くと返るのに、探索の途中では返らない）。
+    そこで王手になる手は python-shogi で全部挙げ、1手ずつ確かめる。
+      - 最後の1手は、指したあと玉方に合法手がなければ詰み（エンジン不要・厳密）
+      - それより前は、指したあとの局面（玉方の手番）をエンジンに聞き、
+        残り手数以内に詰むかを確かめる
+    """
+    board = shogi.Board(base)
+    for m in moves: board.push(shogi.Move.from_usi(m))
+    out = []
+    for m in list(board.legal_moves):
+        board.push(m)
+        if board.is_check():
+            if not list(board.legal_moves):
+                out.append(m.usi())                       # その場で詰み
+            elif n >= 3:
+                best, _ = eng.mate(base, list(moves) + [m.usi()])
+                if best is not None and 1 + len(best) <= n:
+                    out.append(m.usi())
+        board.pop()
+    return out
+
+
 def check_problem(eng, q, want, check_idle=True):
     """余詰め・早詰み・詰み無し・働いていない駒を調べ、問題点の一覧を返す"""
     base = sfen(q)
@@ -206,14 +233,14 @@ def check_problem(eng, q, want, check_idle=True):
         key = tuple(moves)
         if key in seen or len(issues) >= 6: return
         seen.add(key)
-        best, roots = eng.mate(base, moves)
+        best, _ = eng.mate(base, moves)
         if best is None:
             issues.append("%d手目で詰まない（%s のあと）" % (want - n + 1, " ".join(moves) or "初形"))
             return
-        # 余詰め＝「宣言手数以内で詰ませられる別の手」。長い手数でしか詰まない手は余詰めではない
+        # 余詰め＝「宣言手数以内で詰ませられる別の手」。長い手数でしか詰まない手は余詰めではない。
+        # 候補はエンジンの MultiPV に頼らず、王手を全部挙げて確かめる（挙げ漏らしがあるため）
         uniq = []
-        for m, sc in roots.items():
-            if sc > n: continue
+        for m in mating_moves(eng, base, moves, n):
             if not any(same_move(m, u) for u in uniq): uniq.append(m)
         if len(uniq) > 1:
             issues.append("%d手目に別解（%s のあと）: %s" %
