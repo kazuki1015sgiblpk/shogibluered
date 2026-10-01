@@ -180,51 +180,58 @@ async function setPly(page, s){
 /* 問題編: 盤と持ち駒だけを切り出した画像。
  * 見出し帯・字幕・URLは入れない（画像では盤面が主役であるべきなので）。
  * 持ち駒は詰将棋を解くのに必須なので残す。 */
-async function shootProblem(page, out){
-  await setPly(page, 0);
-  const clip = await page.evaluate(() => {
-    ["sns-top", "sns-cap", "sns-note", "sns-bottom"].forEach(id => {
-      const el = document.getElementById(id);
-      if(el) el.style.display = "none";
-    });
-    const gote = document.querySelector(".tray.gote");
+/* 撮影範囲: 盤と攻方の持ち駒だけ。玉方の持ち駒(「残り全部」)と見出し・字幕は入れない。
+ * 盤がいちばん大きく見えるよう、問題図と解答動画で同じ範囲に揃える。
+ * 見出しを消すと盤の位置がずれるので、消してから範囲を測り、撮り終えるまで消したままにする。 */
+const SNS_PARTS = ["sns-top", "sns-cap", "sns-note", "sns-bottom"];
+async function boardClip(page){
+  return page.evaluate((ids) => {
+    ids.forEach(id => { const el = document.getElementById(id); if(el) el.style.display = "none"; });
     const sente = document.querySelector(".tray:not(.gote)");
     const board = document.getElementById("board");
-    const rects = [gote, board, sente].filter(Boolean).map(e => e.getBoundingClientRect());
-    const pad = 16;
-    const left = Math.min(...rects.map(r => r.left)) - pad;
-    const top = Math.min(...rects.map(r => r.top)) - pad;
-    const right = Math.max(...rects.map(r => r.right)) + pad;
-    const bottom = Math.max(...rects.map(r => r.bottom)) + pad;
-    return {x: Math.max(0, left), y: Math.max(0, top),
-            width: right - Math.max(0, left), height: bottom - Math.max(0, top)};
-  });
-  fs.mkdirSync(path.dirname(out), { recursive: true });
-  await page.screenshot({ path: out, clip });
-  await page.evaluate(() => {
-    ["sns-top", "sns-cap", "sns-note", "sns-bottom"].forEach(id => {
-      const el = document.getElementById(id);
-      if(el) el.style.display = "";
-    });
-  });
+    const rects = [board, sente].filter(Boolean).map(e => e.getBoundingClientRect());
+    const pad = 8;
+    const left = Math.max(0, Math.floor(Math.min(...rects.map(r => r.left)) - pad));
+    const top = Math.max(0, Math.floor(Math.min(...rects.map(r => r.top)) - pad));
+    const right = Math.ceil(Math.max(...rects.map(r => r.right)) + pad);
+    const bottom = Math.ceil(Math.max(...rects.map(r => r.bottom)) + pad);
+    // 整数にしておくと、2倍で撮った画像の縦横が偶数になり、動画(yuv420p)に変換できる
+    return {x: left, y: top, width: right - left, height: bottom - top};
+  }, SNS_PARTS);
+}
+async function restoreSnsParts(page){
+  await page.evaluate((ids) => {
+    ids.forEach(id => { const el = document.getElementById(id); if(el) el.style.display = ""; });
+  }, SNS_PARTS);
 }
 
-// 解答編: 1手ずつ撮る
+async function shootProblem(page, out){
+  await setPly(page, 0);
+  const clip = await boardClip(page);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  await page.screenshot({ path: out, clip });
+  await restoreSnsParts(page);
+}
+
+// 解答編: 1手ずつ撮る。範囲は問題図と同じ
 async function shoot(page, dir, plies){
   const frames = [];
+  await setPly(page, 0);
+  const clip = await boardClip(page);
   for(let s = 0; s <= plies; s++){
     await setPly(page, s);
     const file = path.join(dir, `f${String(s).padStart(2, "0")}.png`);
-    await page.screenshot({ path: file });
+    await page.screenshot({ path: file, clip });
     frames.push({ file, hold: s === 0 ? HOLD_FIRST : (s === plies ? HOLD_LAST : HOLD_MOVE) });
   }
-  // 末尾に「毎日更新中」の誘導画面を足す
+  // 末尾に「毎日更新中」の誘導画面を足す（画面全体に重なる表示なので、同じ範囲で撮れる）
   await page.evaluate(() => document.getElementById("sns-cta").classList.add("on"));
   const cta = path.join(dir, "cta.png");
   await page.waitForTimeout(120);
-  await page.screenshot({ path: cta });
+  await page.screenshot({ path: cta, clip });
   await page.evaluate(() => document.getElementById("sns-cta").classList.remove("on"));
   frames.push({ file: cta, hold: HOLD_CTA });
+  await restoreSnsParts(page);
   return frames;
 }
 
