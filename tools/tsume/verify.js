@@ -66,8 +66,24 @@ async function main(){
     await page.addScriptTag({ url: "/tools/tsume/solver.js" });
     results = await page.evaluate(() =>
       TSUME.map((q, i) => {
-        const v = tsumeVerify(q, q.len || 1);
-        return { no: i + 1, name: q.name, len: q.len || 1, ok: !!v.ok, issues: v.issues || [] };
+        const len = q.len || 1;
+        const v = tsumeVerify(q, len);
+        const issues = (v.issues || []).slice();
+        // 働いていない駒: 1枚取り除いても同じ手数で成立するなら、その駒は要らない
+        if(v.ok){
+          const KAN = "一二三四五六七八九";
+          const idle = [];
+          for(const k in q.b){
+            if(q.b[k].t === "玉") continue;
+            const b2 = {...q.b}; delete b2[k];
+            if(tsumeVerify({b:b2, hand:[...q.hand]}, len).ok){
+              const [r, c] = k.split("-").map(Number);
+              idle.push(`${q.b[k].s === "s" ? "▲" : "△"}${10 - c}${KAN[r - 1]}${q.b[k].t}`);
+            }
+          }
+          if(idle.length) issues.push("働いていない駒がある（外しても成立する）: " + idle.join("、"));
+        }
+        return { no: i + 1, name: q.name, len, ok: issues.length === 0, issues };
       })
     );
   } finally {

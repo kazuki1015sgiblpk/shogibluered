@@ -178,8 +178,27 @@ def same_move(a, b):
     return a.rstrip("+") == b.rstrip("+")
 
 
-def check_problem(eng, q, want):
-    """余詰め・早詰み・詰み無しを調べ、問題点の一覧を返す"""
+def idle_pieces(eng, q, want):
+    """取り除いても同じ手数で成立する駒（＝働いていない駒）を返す。
+
+    乱数で駒を置いて作問しているため、詰みに関係しない駒が紛れ込むことがある。
+    解く人は「この駒の意図は何か」と考えてしまうので、作品としては疵になる。
+    KomoringHeights に作問を切り替えたとき、この検査を入れ忘れていて、
+    実際に5問が働いていない駒を抱えたまま配信された。
+    """
+    out = []
+    for k, p in q["b"].items():
+        if p["t"] == "玉": continue
+        q2 = {"b": {kk: v for kk, v in q["b"].items() if kk != k}, "hand": q["hand"]}
+        if not check_problem(eng, q2, want, check_idle=False):
+            r, c = map(int, k.split("-"))
+            out.append("%s%d%s%s" % ("▲" if p["s"] == "s" else "△", 10 - c,
+                                     "一二三四五六七八九"[r - 1], p["t"]))
+    return out
+
+
+def check_problem(eng, q, want, check_idle=True):
+    """余詰め・早詰み・詰み無し・働いていない駒を調べ、問題点の一覧を返す"""
     base = sfen(q)
     issues, seen = [], set()
 
@@ -219,6 +238,9 @@ def check_problem(eng, q, want):
     elif len(best) > want:
         issues.append("%d手以内で詰まない（最短%d手: %s）" % (want, len(best), " ".join(best)))
     walk([], want)
+    if check_idle and not issues:
+        idle = idle_pieces(eng, q, want)
+        if idle: issues.append("働いていない駒がある（外しても成立する）: " + "、".join(idle))
     return issues
 
 
