@@ -6014,8 +6014,12 @@
     }
     return replies;
   }
+  // 読みの時間の上限。0 なら制限なし。上限を過ぎたら「詰まない」として打ち切り、
+  // MATE_TIMED_OUT を立てる（例外で抜けると盤面を戻せなくなるので、false を返して戻る）
+  let MATE_DEADLINE = 0, MATE_TIMED_OUT = false;
   // 攻方(先手)が atkMoves 手以内に必ず詰ませられるか(受方最善で判定)
   function canMateIn(atkMoves){
+    if(MATE_DEADLINE && performance.now() > MATE_DEADLINE){ MATE_TIMED_OUT = true; return false; }
     for(const m of legalAllP(PLAY.st, "s", true)){
       const u = doMoveP(PLAY.st, m);
       if(!inCheckP(PLAY.st, "g")){ undoMoveP(PLAY.st, u); continue; }  // 王手のみ
@@ -6121,9 +6125,26 @@
       }, 900);
       return;
     }
+    // 宣言の手数では詰まない。ただ「受けきられた」とは限らず、合駒などで手数が延びて
+    // いるだけで、玉は助かっていないことがある（例: 9/30 の ▲9三香打 は7手で詰む）。
+    // あと1手ぶん長く読んで詰むなら、そう伝える。読みは0.4秒で打ち切る
+    // （問題によっては10秒以上かかり、そのあいだ操作が固まるため）。
+    MATE_DEADLINE = performance.now() + 400; MATE_TIMED_OUT = false;
+    const longer = replies.every(g => {
+      const ug = doMoveP(PLAY.st, g);
+      const ok = canMateIn(atkLeft);
+      undoMoveP(PLAY.st, ug);
+      return ok;
+    });
+    MATE_DEADLINE = 0;
     undoMoveP(PLAY.st, und);
     playRefresh();
-    toast("その王手は受けきられてしまいます・・・別の一手を探しましょう！", true, 1000);
+    if(longer){
+      toast(`その手でも詰みますが、${total}手では詰みません。もっと短い手順を探しましょう！`, true, 2600);
+    }else{
+      // 本当に詰まないのか、もっと長い手順なら詰むのかは区別しない（どちらにも当てはまる言い方にする）
+      toast(`その王手では${total}手で詰みません。別の一手を探しましょう！`, true, 1800);
+    }
   }
   // 旧: 個別ボタン結線 → フォルダ画面の一覧クリックに統合(openTsumeFolder)
   // ---------- 今日の詰将棋: 日本時間の日付で全員に同じ1問を配信 ----------
