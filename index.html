@@ -3922,11 +3922,16 @@
       const p = JSON.parse(await file.text());
       if(!p || p.type !== "mykifu" || !Array.isArray(p.items)) throw new Error("バックアップファイルの形式が違います");
       let n = 0;
-      for(const it of p.items){
-        if(!it || typeof it !== "object") continue;
-        const rec = {...it};
-        delete rec.id;   // 既存の棋譜と衝突しないよう、新しい番号で追加する
-        await dbPut(rec);
+      // 中身を検査してから保存する。形の崩れた記録が混ざると、マイ棋譜の一覧が
+      // 表示できなくなる（一覧を作るときに meta や moves を読むため）
+      const S = v => String(v == null ? "" : v).slice(0, 200);
+      for(const it of p.items.slice(0, 5000)){
+        if(!it || typeof it !== "object" || !Array.isArray(it.moves) || !it.moves.length) continue;
+        try{ unpackMoves(it.moves); }catch(e){ continue; }    // 指し手が壊れている記録は取り込まない
+        const m = (it.meta && typeof it.meta === "object") ? it.meta : {};
+        await dbPut({name: S(it.name) || "読み込んだ棋譜", moves: it.moves,
+                     meta: {event: S(m.event), sente: S(m.sente), gote: S(m.gote), end: S(m.end)},
+                     savedAt: Number.isFinite(it.savedAt) ? it.savedAt : Date.now()});
         n++;
       }
       toast(`マイ棋譜に${n}局を読み込みました！`);

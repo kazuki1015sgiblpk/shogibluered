@@ -149,9 +149,14 @@ jobs:
           tools/.venv/bin/python tools/tsume/verify_kh.py --upcoming
 
       - name: 素材をつくる
+        # 入力値を ${{ }} でコマンドに直接埋め込むと、細工した値でコマンドを
+        # 実行させられる（スクリプト注入）。環境変数で受け、数字だけを通す
+        env:
+          NUMBER: ${{ inputs.number }}
         run: |
-          if [ -n "${{ inputs.number }}" ]; then
-            node tools/tsume/render_video.js --no "${{ inputs.number }}"
+          if [ -n "$NUMBER" ]; then
+            case "$NUMBER" in (*[!0-9]*) echo "出題番号は数字で指定してください: $NUMBER"; exit 1;; esac
+            node tools/tsume/render_video.js --no "$NUMBER"
           else
             node tools/tsume/render_video.js --tomorrow
           fi
