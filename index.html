@@ -6283,14 +6283,11 @@
       const idx = TSUME_SCHEDULE[n - 1];
       if(!first.has(idx)) first.set(idx, n);
     }
-    try{
-      const served = (await metaGet("tsumeServed")) || [];
-      served.filter(x => x.no < todayTsumeNo()).forEach(x => {
-        if(!first.has(x.idx) || x.no < first.get(x.idx)) first.set(x.idx, x.no);
-      });
-    }catch(e){}
+    // 一覧は配信予定だけから作る。以前はブラウザに残した「開いた問題」の記録も足して
+    // いたが、配信予定から外した問題（例: 10/8 に易しすぎて外した2問）まで並び、
+    // 番号が付けられず「第null問」と表示されていた
     return [...first].map(([idx, no]) => ({idx, no}))
-      .filter(e => e.no >= TSUME_PAST_FROM)       // 8/27〜9/4 は並べない
+      .filter(e => e.no >= TSUME_PAST_FROM && tsumeSerial(e.idx) != null)   // 8/27〜9/4 は並べない
       .sort((a, b) => a.no - b.no);
   }
   async function openTsumeFolder(kind){
@@ -6353,19 +6350,11 @@
     if(no) no.textContent = `第${tsumeSerial(ti)}問`;   // 過去の詰将棋と同じ通し番号
   }
   refreshTodayTsume();
-  async function recordTodayServed(){
-    try{
-      const no = todayTsumeNo(), idx = todayTsumeIndex();
-      if(idx == null) return;             // 出題していない日は記録しない
-      let served = (await metaGet("tsumeServed")) || [];
-      if(!served.some(x => x.no === no)){ served.push({no, idx}); await metaPut("tsumeServed", served); }
-    }catch(e){}
-  }
+
   document.getElementById("btn-tsume-today").addEventListener("click", () => {
     refreshTodayTsume();
     const ti = todayTsumeIndex();
     if(ti == null){ toast("本日の出題はお休みです。過去の詰将棋からお選びください", false, 2600); return; }
-    recordTodayServed();
     setTimeout(() => startTsume(ti), 0);
   });
   // 見出しの駒アイコンの実座標(X/Y)を測り、罫線グリッドを縦横ともマス中心に合わせる(実測方式)
