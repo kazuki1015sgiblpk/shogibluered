@@ -6109,14 +6109,29 @@
       return ok;
     });
     if(forced){
-      // 正解手: 受方の最善(最長に粘る)応手を選ぶ
-      let best = replies[0];
-      for(const g of replies){
+      // 正解手: 受方の最善＝攻方がいちばん早く詰ませられない応手（最も長く粘る手）を選ぶ。
+      // 以前は「詰まされる応手のうち最初に見つかったもの」を選んでいたため、すぐ詰む悪手を
+      // 指してしまい、5手詰が3手で終わることがあった（10/12 の問題で △7一玉 を選んでいた）。
+      const sameMv = (a, b) => a && b && a.s === b.s && !!a.drop === !!b.drop &&
+        (a.drop ? a.drop === b.drop : (a.from[0] === b.from[0] && a.from[1] === b.from[1] && !!a.promo === !!b.promo)) &&
+        a.to[0] === b.to[0] && a.to[1] === b.to[1];
+      // この応手のあと、攻方が何手(攻方の手数)で詰ませられるか。大きいほど粘っている
+      const resist = g => {
         const ug = doMoveP(PLAY.st, g);
-        const stillMate = canMateIn(atkLeft - 1);
+        let k = 1;
+        while(k < atkLeft - 1 && !canMateIn(k)) k++;
         undoMoveP(PLAY.st, ug);
-        if(stillMate){ best = g; break; }
-      }
+        return k;
+      };
+      const scored = replies.map(g => ({g, k: resist(g)}));
+      const maxK = Math.max(...scored.map(x => x.k));
+      const top = scored.filter(x => x.k === maxK).map(x => x.g);
+      // 同じだけ粘る手が複数あるときは、正解手順どおりに進んでいれば保存した手を選ぶ
+      // （解答動画・「手順を再生」と同じ進み方になる）。次に、合駒より玉が動く手を選ぶ
+      const ans = q.answer || [];
+      const onLine = PLAY.moves.every((x, i) => sameMv(x, ans[i])) && sameMv(m, ans[PLAY.moves.length]);
+      const want = onLine ? ans[PLAY.moves.length + 1] : null;
+      const best = top.find(g => sameMv(g, want)) || top.find(g => !g.drop) || top[0];
       // 自分の手(m)はすでにPLAY.stへ反映済み(und)。まず自分の手だけ見せる
       PLAY.moves.push(m);
       PLAY.thinking = true;
