@@ -71,13 +71,13 @@ def hand_all_used(q, pv):
     return all(letters[t] in drops for t in set(q["hand"]))
 
 
-def save(found, want_len):
+def save(found, want_len, tag=""):
     """見つかるたびに書き出す。最後にまとめて書くと、途中で止めた時に全部失う。
 
     この実行で見つけたぶんだけを書く（＝前回の内容は上書きされる）。
     前回の候補を残したいときは、走らせる前にファイルを退避しておくこと。
     """
-    out = os.path.join(ROOT, "dist", "kh-candidates-%d.json" % want_len)
+    out = os.path.join(ROOT, "dist", "kh-candidates-%d%s.json" % (want_len, "-" + tag if tag else ""))
     os.makedirs(os.path.dirname(out), exist_ok=True)
     io.open(out, "w", encoding="utf-8").write(json.dumps(found, ensure_ascii=False, indent=1))
     return out
@@ -88,8 +88,11 @@ def main():
     want_len = int(a[a.index("--len") + 1]) if "--len" in a else 5
     want_n   = int(a[a.index("--want") + 1]) if "--want" in a else 10
     max_try  = int(a[a.index("--max") + 1]) if "--max" in a else 200000
+    # 何本も並べて走らせるときは、出力ファイルを分ける（--tag 1 → kh-candidates-5-1.json）
+    tag      = a[a.index("--tag") + 1] if "--tag" in a else ""
+    threads  = int(a[a.index("--threads") + 1]) if "--threads" in a else None
 
-    eng = Engine(multipv=6)
+    eng = Engine(multipv=6, threads=threads)
     found, tried = [], 0
     try:
         while len(found) < want_n and tried < max_try:
@@ -104,22 +107,23 @@ def main():
             # まれにエンジンが固まる。その局面は捨てて、起動し直して探索を続ける
             # （以前はここで例外が飛んで探索全体が止まっていた）
             try:
-                best, _ = eng.mate(sfen(q), ms=1500)
+                # 5手詰なら一瞬で見つかる。長く粘る局面はほぼ詰まないので早めに見切る
+                best, _ = eng.mate(sfen(q), ms=600)
                 if best is None or len(best) != want_len: continue
                 if not hand_all_used(q, best): continue
-                issues = check_problem(eng, q, want_len)
+                issues = check_problem(eng, q, want_len, stop_early=True)
             except EngineStuck as e:
                 print("  %d試行 エンジンを再起動します（%s）" % (tried, e)); sys.stdout.flush()
                 eng.restart(); continue
             if issues: continue
             found.append({"q": q, "pv": best})
-            save(found, want_len)                  # 途中で止めても残るように都度書き出す
+            save(found, want_len, tag)             # 途中で止めても残るように都度書き出す
             print("  %d試行 / 候補 %d件  %s" % (tried, len(found), " ".join(best)))
             sys.stdout.flush()
     finally:
         eng.close()
 
-    out = save(found, want_len)
+    out = save(found, want_len, tag)
     print("%d試行で %d件。%s に書き出しました。" % (tried, len(found), os.path.relpath(out, ROOT)))
     return 0 if found else 1
 

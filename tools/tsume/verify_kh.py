@@ -97,8 +97,8 @@ class EngineStuck(RuntimeError):
 
 class Engine:
     """1プロセスを使い回す。局面ごとに起動すると起動時間で潰れる。"""
-    def __init__(self, multipv=5, hash_mb=256):
-        self._multipv, self._hash_mb = multipv, hash_mb
+    def __init__(self, multipv=5, hash_mb=256, threads=None):
+        self._multipv, self._hash_mb, self._threads = multipv, hash_mb, threads
         self._boot()
 
     def restart(self):
@@ -190,7 +190,7 @@ def idle_pieces(eng, q, want):
     for k, p in q["b"].items():
         if p["t"] == "玉": continue
         q2 = {"b": {kk: v for kk, v in q["b"].items() if kk != k}, "hand": q["hand"]}
-        if not check_problem(eng, q2, want, check_idle=False):
+        if not check_problem(eng, q2, want, check_idle=False, stop_early=True):
             r, c = map(int, k.split("-"))
             out.append("%s%d%s%s" % ("▲" if p["s"] == "s" else "△", 10 - c,
                                      "一二三四五六七八九"[r - 1], p["t"]))
@@ -224,14 +224,20 @@ def mating_moves(eng, base, moves, n):
     return out
 
 
-def check_problem(eng, q, want, check_idle=True):
-    """余詰め・早詰み・詰み無し・働いていない駒を調べ、問題点の一覧を返す"""
+def check_problem(eng, q, want, check_idle=True, stop_early=False):
+    """余詰め・早詰み・詰み無し・働いていない駒を調べ、問題点の一覧を返す。
+
+    stop_early=True は作問用。合否さえ分かればよいので、最初の問題点で打ち切る。
+    以前は報告用に問題点を6個まで集めており、不合格が決まったあとも残りの変化を
+    調べ続けて、探索時間の大半をそこに使っていた。
+    """
     base = sfen(q)
     issues, seen = [], set()
+    limit = 1 if stop_early else 6
 
     def walk(moves, n):
         key = tuple(moves)
-        if key in seen or len(issues) >= 6: return
+        if key in seen or len(issues) >= limit: return
         seen.add(key)
         best, _ = eng.mate(base, moves)
         if best is None:
@@ -264,6 +270,7 @@ def check_problem(eng, q, want, check_idle=True):
         issues.append("宣言は%d手詰だが %d手で詰む（早詰み: %s）" % (want, len(best), " ".join(best)))
     elif len(best) > want:
         issues.append("%d手以内で詰まない（最短%d手: %s）" % (want, len(best), " ".join(best)))
+    if stop_early and issues: return issues
     walk([], want)
     if check_idle and not issues:
         idle = idle_pieces(eng, q, want)
