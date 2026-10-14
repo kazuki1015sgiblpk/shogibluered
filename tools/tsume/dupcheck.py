@@ -7,6 +7,10 @@
 
 盤の駒が一枚違うだけで解く手順がそっくり同じ、という形も紛らわしい。
 解く人にとっては同じ問題なので、手順だけを見た照合も行う。
+
+さらに次の2つも同じ問題として扱う（実際に見逃しかけた）。
+  - 左右を反転しただけの形（第51問を反転した候補があった）
+  - 玉方の合駒の駒の種類だけが違う手順（合駒を角で受けるか飛車で受けるかの違いだけ）
 """
 import json, io, os, sys
 
@@ -33,18 +37,21 @@ def signature(b, hand, answer):
     return (tuple(sorted(pieces)), tuple(sorted(hand)), tuple(moves))
 
 
-def move_signature(b, answer):
-    """手順だけを玉基準で表す。盤の飾りが違っても手順が同じなら同じ問題に感じられる"""
+def move_signature(b, answer, mirror=False):
+    """手順だけを玉基準で表す。盤の飾りが違っても手順が同じなら同じ問題に感じられる。
+    玉方の合駒は駒の種類を問わない。mirror=True で左右を反転した形を返す"""
     king = next((k for k, p in b.items() if p["t"] == "玉"), None)
     if king is None: return None
     kr, kc = map(int, king.split("-"))
+    f = -1 if mirror else 1
     out = []
     for m in answer or []:
         if m.get("drop"):
-            out.append(("d", m["s"], m["drop"], m["to"][0] - kr, m["to"][1] - kc))
+            piece = "合" if m["s"] == "g" else m["drop"]      # 合駒の種類は区別しない
+            out.append(("d", m["s"], piece, m["to"][0] - kr, f * (m["to"][1] - kc)))
         else:
-            out.append(("m", m["s"], m["from"][0] - kr, m["from"][1] - kc,
-                        m["to"][0] - kr, m["to"][1] - kc, bool(m.get("promo"))))
+            out.append(("m", m["s"], m["from"][0] - kr, f * (m["from"][1] - kc),
+                        m["to"][0] - kr, f * (m["to"][1] - kc), bool(m.get("promo"))))
     return tuple(out)
 
 
@@ -54,8 +61,9 @@ def existing_signatures(path=None):
     for q in doc["problems"]:
         sig = signature(q["b"], q["hand"], q.get("answer"))
         if sig: forms[sig] = q["name"]
-        ms = move_signature(q["b"], q.get("answer"))
-        if ms: moves.setdefault(ms, []).append(q["name"])
+        for mir in (False, True):                       # 左右反転した手順も登録しておく
+            ms = move_signature(q["b"], q.get("answer"), mirror=mir)
+            if ms: moves.setdefault(ms, []).append(q["name"] + ("（左右反転）" if mir else ""))
     return forms, moves
 
 
@@ -78,7 +86,9 @@ def main():
         elif ms in seen_moves:
             print("%2d  除外: 候補%d と同じ手順" % (i, seen_moves[ms]))
         else:
-            seen[sig] = i; seen_moves[ms] = i; ok.append(i)
+            seen[sig] = i; seen_moves[ms] = i
+            seen_moves[move_signature(c["q"]["b"], ans, mirror=True)] = i
+            ok.append(i)
             print("%2d  採用できる" % i)
     print("\n使える候補: %s" % (", ".join(map(str, ok)) or "なし"))
     return 0
