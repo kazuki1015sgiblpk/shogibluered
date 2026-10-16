@@ -91,6 +91,19 @@ def sfen(q):
     return "/".join(rows) + " b " + (hands or "-") + " 1"
 
 
+def pv_is_mate(sfen_pos, moves, pv):
+    """moves のあとに pv を指して、すべて合法手で、最後に詰みになっているか"""
+    try:
+        b = shogi.Board(sfen_pos)
+        for u in list(moves) + list(pv):
+            mv = shogi.Move.from_usi(u)
+            if mv not in b.legal_moves: return False
+            b.push(mv)
+        return b.is_check() and not list(b.legal_moves)
+    except Exception:
+        return False
+
+
 class EngineStuck(RuntimeError):
     """エンジンが応答しなくなった。局面によってはまれに固まる"""
 
@@ -99,6 +112,7 @@ class Engine:
     """1プロセスを使い回す。局面ごとに起動すると起動時間で潰れる。"""
     def __init__(self, multipv=5, hash_mb=256, threads=None):
         self._multipv, self._hash_mb, self._threads = multipv, hash_mb, threads
+        self.rejected = []          # 盤で確かめて詰みにならなかったエンジンの答え（原因調査用）
         self._boot()
 
     def restart(self):
@@ -164,6 +178,12 @@ class Engine:
                 # MultiPV は「もっと長い手数でなら詰む手」も挙げてくる。
                 # 何手で詰むかを持ち帰り、宣言手数以内かどうかは呼び出し側で判断する
                 if sc > 0 and (mv not in roots or sc < roots[mv]): roots[mv] = sc
+        # エンジンの答えを鵜呑みにしない。返ってきた手順を実際に盤で指し、
+        # 合法手だけで進んで最後が詰みになっているかを確かめる。GitHub 上（Linux）の
+        # エンジンが、手元では19手かかる詰みを「5手以内」と答えたことがあった（第66問）
+        if best is not None and not pv_is_mate(sfen_pos, list(moves), best):
+            self.rejected.append((list(moves), best))
+            best = None
         return best, roots
 
     def close(self):
@@ -187,8 +207,11 @@ def idle_pieces(eng, q, want):
     実際に5問が働いていない駒を抱えたまま配信された。
     """
     out = []
+    # 限定打のために置いた駒（problems.json の blockers）は外さない。
+    # 手数を数える規約では無くても成立してしまうが、香などの打ち場所を一つに決める役目がある
+    blockers = set(q.get("blockers") or [])
     for k, p in q["b"].items():
-        if p["t"] == "玉": continue
+        if p["t"] == "玉" or k in blockers: continue
         q2 = {"b": {kk: v for kk, v in q["b"].items() if kk != k}, "hand": q["hand"]}
         if not check_problem(eng, q2, want, check_idle=False, stop_early=True):
             r, c = map(int, k.split("-"))
@@ -249,8 +272,12 @@ def check_problem(eng, q, want, check_idle=True, stop_early=False):
         for m in mating_moves(eng, base, moves, n):
             if not any(same_move(m, u) for u in uniq): uniq.append(m)
         if len(uniq) > 1:
+            detail = []
+            for m in sorted(uniq):
+                pv, _ = eng.mate(base, list(moves) + [m])
+                detail.append("%s→%s" % (m, " ".join(pv) if pv else "（その場で詰み）"))
             issues.append("%d手目に別解（%s のあと）: %s" %
-                          (want - n + 1, " ".join(moves) or "初形", " / ".join(sorted(uniq))))
+                          (want - n + 1, " ".join(moves) or "初形", " / ".join(detail)))
         if n <= 1: return
         board = shogi.Board(base)
         for m in moves + [best[0]]: board.push(shogi.Move.from_usi(m))

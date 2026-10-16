@@ -64,7 +64,9 @@ async function main(){
   try{
     await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: "load" });
     await page.addScriptTag({ url: "/tools/tsume/solver.js" });
-    results = await page.evaluate(() =>
+    // 限定打のために置いた駒（blockers）は、働いていない駒の検査から外す
+    const blockersByIndex = doc.problems.map(p => p.blockers || []);
+    results = await page.evaluate((blockersByIndex) =>
       TSUME.map((q, i) => {
         const len = q.len || 1;
         const v = tsumeVerify(q, len);
@@ -74,7 +76,7 @@ async function main(){
           const KAN = "一二三四五六七八九";
           const idle = [];
           for(const k in q.b){
-            if(q.b[k].t === "玉") continue;
+            if(q.b[k].t === "玉" || (blockersByIndex[i] || []).includes(k)) continue;
             const b2 = {...q.b}; delete b2[k];
             if(tsumeVerify({b:b2, hand:[...q.hand]}, len).ok){
               const [r, c] = k.split("-").map(Number);
@@ -84,7 +86,7 @@ async function main(){
           if(idle.length) issues.push("働いていない駒がある（外しても成立する）: " + idle.join("、"));
         }
         return { no: i + 1, name: q.name, len, ok: issues.length === 0, issues };
-      })
+      }), blockersByIndex
     );
   } finally {
     await browser.close();
