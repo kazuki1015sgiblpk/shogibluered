@@ -13,7 +13,7 @@ KomoringHeights に任せると桁違いに速い。
 import json, io, os, sys, random, datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from verify_kh import (Engine, EngineStuck, sfen, check_problem,
-                       defender_in_check, piece_overflow)
+                       defender_in_check, piece_overflow, spare_line)
 import shogi
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -116,7 +116,13 @@ def main():
                 print("  %d試行 エンジンを再起動します（%s）" % (tried, e)); sys.stdout.flush()
                 eng.restart(); continue
             if issues: continue
-            found.append({"q": q, "pv": best})
+            # 正解として登録する手順は、玉方が駒の余らない受けを選んだもの（エンジンの読み筋は
+            # 同じ手数でも駒が余る受けを選ぶことがある）
+            try:
+                line, _ = spare_line(eng, sfen(q), [], want_len)
+            except EngineStuck:
+                eng.restart(); continue
+            found.append({"q": q, "pv": line})
             save(found, want_len, tag)             # 途中で止めても残るように都度書き出す
             print("  %d試行 / 候補 %d件  %s" % (tried, len(found), " ".join(best)))
             sys.stdout.flush()

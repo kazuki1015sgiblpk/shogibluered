@@ -66,7 +66,8 @@ async function main(){
     await page.addScriptTag({ url: "/tools/tsume/solver.js" });
     // 限定打のために置いた駒（blockers）は、働いていない駒の検査から外す
     const blockersByIndex = doc.problems.map(p => p.blockers || []);
-    results = await page.evaluate((blockersByIndex) =>
+    const waiveByIndex = doc.problems.map(p => p.waive || []);
+    results = await page.evaluate(([blockersByIndex, waiveByIndex]) =>
       TSUME.map((q, i) => {
         const len = q.len || 1;
         const v = tsumeVerify(q, len);
@@ -85,8 +86,15 @@ async function main(){
           }
           if(idle.length) issues.push("働いていない駒がある（外しても成立する）: " + idle.join("、"));
         }
+        // 駒余り（配信済みで差し替えないと決めた問題は waive で外す）
+        if(!issues.length && !(waiveByIndex[i] || []).includes("駒余り")){
+          const sp = tsumeSpare(q, len);
+          if(sp.spare) issues.push("駒余り（どう受けても詰め上がりに攻方の持ち駒が余る）");
+          else if((q.answer || []).length && tsumeAnswerHandLeft(q) > 0)
+            issues.push("登録した正解手順が駒余り（駒が余らない受けがある）");
+        }
         return { no: i + 1, name: q.name, len, ok: issues.length === 0, issues };
-      }), blockersByIndex
+      }), [blockersByIndex, waiveByIndex]
     );
   } finally {
     await browser.close();

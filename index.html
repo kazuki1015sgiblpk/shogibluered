@@ -5819,10 +5819,10 @@
      hand:["歩","桂"],
      answer:[{s:"s",drop:"歩",to:[2,1]}, {s:"g",from:[1,1],to:[1,2]}, {s:"s",drop:"桂",to:[3,3]}, {s:"g",from:[1,2],to:[1,3]}, {s:"s",from:[3,2],to:[1,4],promo:true}],
      hint:"まず歩を打って玉を動かします。次は桂を打ち、最後は角を成りましょう"},
-    {name:"第28問 合駒を乗り越える", len:5, level:4,
+    {name:"第28問 合駒を乗り越える", len:5, level:5,
      b:{"1-1":{t:"玉",s:"g"}, "3-4":{t:"角",s:"s"}},
      hand:["角","金"],
-     answer:[{s:"s",drop:"角",to:[3,3]}, {s:"g",drop:"金",to:[2,2]}, {s:"s",drop:"金",to:[1,2]}, {s:"g",from:[1,1],to:[2,1]}, {s:"s",from:[3,3],to:[2,2],promo:true}],
+     answer:[{s:"s",drop:"角",to:[3,3]}, {s:"g",from:[1,1],to:[2,1]}, {s:"s",from:[3,4],to:[1,2],promo:true}, {s:"g",from:[2,1],to:[1,2]}, {s:"s",drop:"金",to:[2,2]}],
      hint:"角は離して打ちます。受けの駒を打たれたら、金を捨てて玉を呼び込みましょう"},
     {name:"第29問 飛車二枚で押し下げる", len:5, level:4,
      b:{"2-1":{t:"玉",s:"g"}, "2-3":{t:"金",s:"s"}, "1-1":{t:"香",s:"g"}},
@@ -6108,6 +6108,36 @@
     }
     return false;
   }
+  /* 攻方の手番から、攻方が atkMoves 手(攻方の手数)で詰ませ、玉方が最善に受けたとき、
+   * 詰め上がりで攻方の持ち駒が余るか。玉方は最も長く粘る受けのうち、駒が余らない受けを選ぶ */
+  function leavesSpare(st, atkMoves){
+    for(const m of legalAllP(st, "s", true)){
+      const u = doMoveP(st, m);
+      if(!inCheckP(st, "g")){ undoMoveP(st, u); continue; }
+      const reps = legalAllP(st, "g", true);
+      let mates = false, spare = true;
+      if(reps.length === 0){
+        mates = m.drop !== "歩";
+        spare = st.hands.s.length > 0;
+      }else if(atkMoves > 1 && reps.every(g => {
+          const ug = doMoveP(st, g); const ok = canMateIn(atkMoves - 1); undoMoveP(st, ug); return ok; })){
+        mates = true;
+        const ks = reps.map(g => {
+          const ug = doMoveP(st, g);
+          let k = 1; while(k < atkMoves - 1 && !canMateIn(k)) k++;
+          undoMoveP(st, ug); return k;
+        });
+        const longest = Math.max(...ks);
+        spare = reps.every((g, i) => {
+          if(ks[i] !== longest) return true;
+          const ug = doMoveP(st, g); const r = leavesSpare(st, longest); undoMoveP(st, ug); return r;
+        });
+      }
+      undoMoveP(st, u);
+      if(mates) return spare;          // 攻方の手は一意なので、最初に見つかった詰ませ方で決まる
+    }
+    return true;
+  }
   /* 玉方の応手が「無駄合」だけかを調べる。
    *
    * 遠くから王手をかけると、玉方は王手している駒と玉のあいだに駒を打って
@@ -6190,7 +6220,17 @@
       };
       const scored = replies.map(g => ({g, k: resist(g)}));
       const maxK = Math.max(...scored.map(x => x.k));
-      const top = scored.filter(x => x.k === maxK).map(x => x.g);
+      let top = scored.filter(x => x.k === maxK).map(x => x.g);
+      // 同じだけ粘れる受けが複数あるときは、詰め上がりで攻方の駒が余らない受けを選ぶ（詰将棋の約束）
+      if(top.length > 1){
+        const noSpare = top.filter(g => {
+          const ug = doMoveP(PLAY.st, g);
+          const sp = leavesSpare(PLAY.st, maxK);
+          undoMoveP(PLAY.st, ug);
+          return !sp;
+        });
+        if(noSpare.length) top = noSpare;
+      }
       // 同じだけ粘る手が複数あるときは、正解手順どおりに進んでいれば保存した手を選ぶ
       // （解答動画・「手順を再生」と同じ進み方になる）。次に、合駒より玉が動く手を選ぶ
       const ans = q.answer || [];

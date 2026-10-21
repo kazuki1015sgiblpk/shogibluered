@@ -247,6 +247,43 @@ def mating_moves(eng, base, moves, n):
     return out
 
 
+def hand_left(sfen_pos, moves):
+    """moves を指したあとの攻方の持ち駒の枚数"""
+    b = shogi.Board(sfen_pos)
+    for u in moves: b.push(shogi.Move.from_usi(u))
+    return sum(b.pieces_in_hand[shogi.BLACK].values())
+
+
+def spare_line(eng, base, moves, n):
+    """攻方の手番から、玉方が最善に受けたときの手順と、詰め上がりで駒が余るかを返す。
+
+    玉方は最も長く粘る受けを選び、同じ手数の受けが複数あれば攻方の駒が余らない
+    受けを選ぶ（詰将棋の約束）。それでも余るなら作品として「駒余り」の疵になる。
+    戻り値: (手順, 余るか)
+    """
+    cands = mating_moves(eng, base, moves, n)
+    if not cands: return [], True
+    # 攻方の手は一意（成・不成の違いだけ）。両方あるときは、見せ方として自然な「成る」ほうを使う
+    m = sorted(cands, key=lambda u: not u.endswith("+"))[0]
+    board = shogi.Board(base)
+    for u in list(moves) + [m]: board.push(shogi.Move.from_usi(u))
+    replies = [r.usi() for r in board.legal_moves]
+    if not replies:
+        return [m], hand_left(base, list(moves) + [m]) > 0
+    lens = {}
+    for r in replies:
+        pv, _ = eng.mate(base, list(moves) + [m, r])
+        lens[r] = len(pv) if pv else 99
+    longest = max(lens.values())
+    first = None
+    for r in replies:
+        if lens[r] != longest: continue
+        sub, spare = spare_line(eng, base, list(moves) + [m, r], longest)
+        if not spare: return [m, r] + sub, False
+        if first is None: first = [m, r] + sub
+    return first, True
+
+
 def check_problem(eng, q, want, check_idle=True, stop_early=False):
     """余詰め・早詰み・詰み無し・働いていない駒を調べ、問題点の一覧を返す。
 
@@ -302,6 +339,17 @@ def check_problem(eng, q, want, check_idle=True, stop_early=False):
     if check_idle and not issues:
         idle = idle_pieces(eng, q, want)
         if idle: issues.append("働いていない駒がある（外しても成立する）: " + "、".join(idle))
+    # 駒余り: 詰め上がりで攻方の持ち駒が余らないこと。配信済みで差し替えないと決めた問題は
+    # problems.json の waive に「駒余り」と書いて検査を外す
+    if check_idle and not issues and "駒余り" not in (q.get("waive") or []):
+        line, spare = spare_line(eng, base, [], want)
+        if spare:
+            issues.append("駒余り（どう受けても詰め上がりに攻方の持ち駒が余る）: " + " ".join(line))
+        elif q.get("answer"):
+            from difficulty import to_usi
+            ans = [to_usi(m) for m in q["answer"]]
+            if hand_left(base, ans) > 0:
+                issues.append("登録した正解手順が駒余り（駒が余らない受けがある）: " + " ".join(line))
     return issues
 
 

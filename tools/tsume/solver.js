@@ -185,6 +185,43 @@
   /* 1問を検証する。
    * declaredLen: 問題が名乗っている手数（TSUME[i].len、既定1）
    * 戻り値の ok が true のときだけ配信してよい。 */
+
+  /* 駒余り: 玉方が最も長く粘り、同じ手数なら攻方の駒が余らない受けを選んだとき、
+   * 詰め上がりで攻方の持ち駒が余るか。余るなら作品として疵になる（詰将棋の約束）。 */
+  function shortestMate(st, maxN){
+    for(let n = 1; n <= maxN; n += 2) if(atkMate(st, n, false).length) return n;
+    return 99;
+  }
+  function spareLine(st, n){
+    const m = atkMate(st, n, false)[0];
+    if(!m) return {line: [], spare: true};
+    const u = doMoveP(st, m);
+    const reps = legalAllP(st, DEF, true);
+    let res;
+    if(!reps.length){
+      res = {line: [m], spare: st.hands.s.length > 0};
+    }else{
+      const L = reps.map(r => { const u2 = doMoveP(st, r); const k = shortestMate(st, n - 2); undoMoveP(st, u2); return k; });
+      const longest = Math.max(...L);
+      let first = null; res = null;
+      for(let i = 0; i < reps.length && !res; i++){
+        if(L[i] !== longest) continue;
+        const u2 = doMoveP(st, reps[i]); const sub = spareLine(st, longest); undoMoveP(st, u2);
+        const cand = {line: [m, reps[i], ...sub.line], spare: sub.spare};
+        if(!cand.spare) res = cand; else if(!first) first = cand;
+      }
+      if(!res) res = first;
+    }
+    undoMoveP(st, u);
+    return res;
+  }
+  window.tsumeSpare = function(q, len){ return spareLine(buildState(q), len || 1); };
+  // 登録した正解手順を最後まで指したときの攻方の持ち駒の枚数
+  window.tsumeAnswerHandLeft = function(q){
+    const st = buildState(q);
+    for(const m of q.answer || []) doMoveP(st, m);
+    return st.hands.s.length;
+  };
   window.tsumeVerify = function(q, declaredLen){
     const want = declaredLen || 1;
     nodes = 0;
