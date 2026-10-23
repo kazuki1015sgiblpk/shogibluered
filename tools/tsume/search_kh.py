@@ -92,7 +92,7 @@ def main():
     tag      = a[a.index("--tag") + 1] if "--tag" in a else ""
     threads  = int(a[a.index("--threads") + 1]) if "--threads" in a else None
 
-    eng = Engine(multipv=6, threads=threads)
+    eng = Engine(threads=threads)
     found, tried = [], 0
     try:
         while len(found) < want_n and tried < max_try:

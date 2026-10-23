@@ -110,7 +110,11 @@ class EngineStuck(RuntimeError):
 
 class Engine:
     """1プロセスを使い回す。局面ごとに起動すると起動時間で潰れる。"""
-    def __init__(self, multipv=5, hash_mb=256, threads=None):
+    # MultiPV は 1（最善手だけ）にする。2以上にすると、詰みを見つけたあとも次善手の探索を
+    # 続け、玉方の持ち駒が多い局面では制限時間切れ（checkmate timeout）になって
+    # 「詰まない」と誤って返していた。余詰めの判定は mating_moves で王手を全部確かめて
+    # いるので、次善手の一覧は使っていない
+    def __init__(self, multipv=1, hash_mb=256, threads=None):
         self._multipv, self._hash_mb, self._threads = multipv, hash_mb, threads
         self.rejected = []          # 盤で確かめて詰みにならなかったエンジンの答え（原因調査用）
         self._boot()
