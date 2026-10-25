@@ -222,6 +222,39 @@
     for(const m of q.answer || []) doMoveP(st, m);
     return st.hands.s.length;
   };
+
+  /* 限定打: 正解手順の香・飛・角の打ち駒を、同じ線で1マス遠くから打っても
+   * 「合駒→取る」の分（2手）だけ長い手数で詰むなら、打ち場所が非限定 */
+  window.tsumeNonUnique = function(q, len){
+    const want = len || 1, st = buildState(q), ans = q.answer || [], out = [];
+    for(let k = 0; k < ans.length; k++){
+      const m = ans[k];
+      if(k % 2 === 0 && m.drop && "香飛角".includes(m.drop)){
+        let kr = 0, kc = 0;
+        for(const key in st.b){ const p = st.b[key]; if(p.t === "玉" && p.s === DEF) [kr, kc] = key.split("-").map(Number); }
+        const dr = Math.sign(m.to[0] - kr), dc = Math.sign(m.to[1] - kc);
+        const r = m.to[0] + dr, c = m.to[1] + dc;
+        if(r >= 1 && r <= 9 && c >= 1 && c <= 9 && !st.b[`${r}-${c}`]){
+          const alt = legalAllP(st, ATK, true).find(x => x.drop === m.drop && x.to[0] === r && x.to[1] === c);
+          if(alt){
+            const u = doMoveP(st, alt);
+            if(inCheckP(st, DEF)){
+              // 正解の打ち駒からは want-k 手。1マス遠いと2手延びて want-k+2 手。
+              // 遠くに打つ手と玉方の応手の2手を引くと、攻方に残るのは want-k 手
+              const n = want - k;
+              const reps = legalAllP(st, DEF, true);
+              const mates = reps.length === 0 || reps.every(g => {
+                const u2 = doMoveP(st, g); const ok = atkMate(st, n, false).length > 0; undoMoveP(st, u2); return ok; });
+              if(mates) out.push(`${m.drop}打 ${10 - m.to[1]}${m.to[0]} → ${10 - c}${r}`);
+            }
+            undoMoveP(st, u);
+          }
+        }
+      }
+      doMoveP(st, m);
+    }
+    return out;
+  };
   window.tsumeVerify = function(q, declaredLen){
     const want = declaredLen || 1;
     nodes = 0;

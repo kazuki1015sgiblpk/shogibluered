@@ -93,6 +93,11 @@ async function main(){
           else if((q.answer || []).length && tsumeAnswerHandLeft(q) > 0)
             issues.push("登録した正解手順が駒余り（駒が余らない受けがある）");
         }
+        // 限定打（遮る駒で直した問題は通る。配信済みで直さない問題は waive で外す）
+        if(!issues.length && !(waiveByIndex[i] || []).includes("非限定")){
+          const nu = tsumeNonUnique(q, len);
+          if(nu.length) issues.push("打ち場所が非限定（1マス遠くから打っても詰む）: " + nu.join("、"));
+        }
         return { no: i + 1, name: q.name, len, ok: issues.length === 0, issues };
       }), [blockersByIndex, waiveByIndex]
     );

@@ -288,6 +288,36 @@ def spare_line(eng, base, moves, n):
     return first, True
 
 
+def non_unique_drops(eng, base, line):
+    """正解手順の中の香・飛・角の打ち駒について、同じ線で1マス遠くから打っても
+    「合駒→取る」の分だけ長い手数で詰むなら、打ち場所が非限定（限定打になっていない）。
+    非限定の打ち駒を「手(USI) → 遠くの手」の文字列で返す。"""
+    out = []
+    want = len(line)
+    for k in range(0, want, 2):
+        u = line[k]
+        if u[1] != "*" or u[0] not in "LRB": continue
+        b = shogi.Board(base)
+        for m in line[:k]: b.push(shogi.Move.from_usi(m))
+        ks = next(sq for sq in range(81)
+                  if (pc := b.piece_at(sq)) and pc.piece_type == shogi.KING and pc.color == shogi.WHITE)
+        to = shogi.Move.from_usi(u).to_square
+        df = (to % 9 > ks % 9) - (to % 9 < ks % 9)
+        dr = (to // 9 > ks // 9) - (to // 9 < ks // 9)
+        f, r = to % 9 + df, to // 9 + dr
+        if not (0 <= f < 9 and 0 <= r < 9) or b.piece_at(r * 9 + f) is not None: continue
+        alt = "%s*%d%s" % (u[0], 9 - f, "abcdefghi"[r])
+        mv = shogi.Move.from_usi(alt)
+        if mv not in b.legal_moves: continue
+        b.push(mv)
+        if not b.is_check(): continue
+        pv, _ = eng.mate(base, line[:k] + [alt])
+        # 正解の手からの残りは want-k 手。1マス遠いと「合駒→取る」で2手延びる
+        if pv is not None and 1 + len(pv) <= (want - k) + 2:
+            out.append("%s → %s" % (u, alt))
+    return out
+
+
 def check_problem(eng, q, want, check_idle=True, stop_early=False):
     """余詰め・早詰み・詰み無し・働いていない駒を調べ、問題点の一覧を返す。
 
@@ -345,7 +375,9 @@ def check_problem(eng, q, want, check_idle=True, stop_early=False):
         if idle: issues.append("働いていない駒がある（外しても成立する）: " + "、".join(idle))
     # 駒余り: 詰め上がりで攻方の持ち駒が余らないこと。配信済みで差し替えないと決めた問題は
     # problems.json の waive に「駒余り」と書いて検査を外す
-    if check_idle and not issues and "駒余り" not in (q.get("waive") or []):
+    waive = q.get("waive") or []
+    line = None
+    if check_idle and not issues and "駒余り" not in waive:
         line, spare = spare_line(eng, base, [], want)
         if spare:
             issues.append("駒余り（どう受けても詰め上がりに攻方の持ち駒が余る）: " + " ".join(line))
@@ -354,6 +386,16 @@ def check_problem(eng, q, want, check_idle=True, stop_early=False):
             ans = [to_usi(m) for m in q["answer"]]
             if hand_left(base, ans) > 0:
                 issues.append("登録した正解手順が駒余り（駒が余らない受けがある）: " + " ".join(line))
+    # 限定打: 香・飛・角を遠くから打っても詰むなら、打ち場所が一つに決まらない（非限定）。
+    # 遮る駒（blockers）を置いて直した問題は、この検査で通る
+    if check_idle and not issues and "非限定" not in waive:
+        if q.get("answer"):
+            from difficulty import to_usi
+            main = [to_usi(m) for m in q["answer"]]
+        else:
+            main = line or spare_line(eng, base, [], want)[0]
+        nu = non_unique_drops(eng, base, main)
+        if nu: issues.append("打ち場所が非限定（1マス遠くから打っても詰む）: " + "、".join(nu))
     return issues
 
 
