@@ -257,7 +257,9 @@ function encode(frames, out){
     { stdio: ["ignore", "ignore", "pipe"] });
 }
 
-const SITE_URL = "https://shogi-bluered.com/#tsume";   // 開くと「今日の詰将棋」に直行する
+// 開くと詰将棋に直行する。投稿文には配信日を付けた #tsume=YYYYMMDD を載せ、
+// 後日そのポストから開いても、当日の問題ではなくその日の問題が出るようにする
+const SITE_URL = "https://shogi-bluered.com/#tsume";
 const HASHTAGS = "#毎日詰将棋 #詰将棋 #将棋";
 const SEP = "ーーーーーーーーーーーーーーーーーーーーーー";
 
@@ -273,7 +275,7 @@ function writePost(out, t, prob, pngName, mp4Name){
     teaser,
     "",
     "こちらのURLから実際に詰将棋を解けます！",
-    SITE_URL,
+    `${SITE_URL}=${t.iso.replace(/-/g, "")}`,
     HASHTAGS,
     `※このフォルダの「${pngName}」を添付`,
     "",
