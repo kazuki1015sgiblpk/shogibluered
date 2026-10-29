@@ -4996,7 +4996,7 @@
     // 30枚近くになって盤が読めなくなるので、慣例どおり文言だけ出す
     if(asRest){ el.innerHTML = `<span class="empty">残り全部</span>`; return; }
     el.innerHTML = arr.length
-      ? arr.map(t => `<span class="koma">${pieceHtml(t, side)}</span>`).join("")
+      ? arr.map(t => `<span class="koma" data-t="${t}">${pieceHtml(t, side)}</span>`).join("")
       : `<span class="empty">なし</span>`;
   }
 
@@ -5576,9 +5576,11 @@
     while(kEl && kEl.parentElement !== tray) kEl = kEl.parentElement;
     if(!kEl || !kEl.classList.contains("koma")) return;
     clearPlaySel();
-    const idx = [...tray.children].indexOf(kEl);
-    const t = PLAY.st.hands.s[idx];
-    if(!t) return;
+    // 何番目かではなく駒の種類で引く。王手を探す読みで打って戻すと、内部の持ち駒は
+    // 歩・香・桂…の順に並び直るが、表示は問題の並びのまま。番号で引くと、
+    // 桂を押したのに銀を打つことになっていた（第68問 ▲8三桂が打てなかった）
+    const t = kEl.dataset.t;
+    if(!t || !PLAY.st.hands.s.includes(t)) return;
     PLAY.selDrop = t;
     kEl.classList.add("pick");
     PLAY.selMoves = legalAllP(PLAY.st, "s", true).filter(m => m.drop === t);
