@@ -332,7 +332,16 @@ function writePost(out, t, prob, pngName, mp4Name){
       return list;
     }, {only: onlyNo, tomorrow});
 
-    if(!targets.length){ console.log("対象の出題がありません"); return; }
+    // 対象がないのは、ほぼ「配信予定が尽きた（ストック切れ）」とき。黙って終わると
+    // CI では後の素材保存が「ファイルがない」で落ち、原因が分かりにくかった。ここで失敗させる
+    if(!targets.length){
+      const why = tomorrow || !onlyNo
+        ? "明日以降の問題が配信予定に登録されていません（ストック切れ）。problems.json に問題を追加してください"
+        : `出題番号 ${onlyNo} は配信予定にありません`;
+      console.log(process.env.GITHUB_ACTIONS ? `::error::${why}` : why);
+      process.exitCode = 1;
+      return;
+    }
 
     for(const t of targets){
       const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tsume-"));

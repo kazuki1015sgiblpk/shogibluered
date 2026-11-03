@@ -74,6 +74,8 @@ jobs:
         if: steps.stock.outputs.low == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          REMAINING: ${{ steps.stock.outputs.remaining }}
+          LAST_DATE: ${{ steps.stock.outputs.last_date }}
         run: |
           TITLE="詰将棋のストックが少なくなっています"
           BODY=$(cat <<'MD'
@@ -85,7 +87,7 @@ jobs:
           | 最後の配信日 | __LAST__ |
           | 通知のしきい値 | __THRESHOLD__日 |
 
-          尽きると最後の問題を出し続けてしまい、同じ問題が何日も並びます。
+          尽きた日は「本日の出題はお休みです」になり、X投稿の素材も作られません。
 
           ## 補充のしかた
 
@@ -118,6 +120,12 @@ jobs:
           if [ -n "$NUM" ] && [ "$NUM" != "null" ]; then
             gh issue edit "$NUM" --body "$BODY"     # 残量だけ最新にする(通知は飛ばない)
             echo "既存の Issue #$NUM を更新しました"
+            # 本文の書き換えでは通知が届かない。Issue を立てた日の通知だけでは見落とし、
+            # 実際にストックが尽きた（11/4）。残り3日を切ったら毎日コメントして知らせ直す
+            if [ "$REMAINING" -lt 3 ]; then
+              gh issue comment "$NUM" --body "⚠️ 配信できる問題が残り${REMAINING}日分です（最後の配信日: ${LAST_DATE}）。尽きた日は「本日の出題はお休みです」になります。"
+              echo "残り${REMAINING}日分のため、Issue #$NUM にコメントしました"
+            fi
           else
             gh issue create --title "$TITLE" --body "$BODY"
           fi
