@@ -188,11 +188,12 @@ async function boardClip(page){
   return page.evaluate((ids) => {
     ids.forEach(id => { const el = document.getElementById(id); if(el) el.style.display = "none"; });
     const sente = document.querySelector(".tray:not(.gote)");
-    const board = document.getElementById("board");
+    const board = document.querySelector(".board-outer");   // 盤の外に付けた座標も入れる
     const rects = [board, sente].filter(Boolean).map(e => e.getBoundingClientRect());
     const pad = 8;
     const left = Math.max(0, Math.floor(Math.min(...rects.map(r => r.left)) - pad));
-    const top = Math.max(0, Math.floor(Math.min(...rects.map(r => r.top)) - pad));
+    // 上は座標の行がすぐ上の持ち駒欄に近いので、余白を詰めて欄の縁が写り込まないようにする
+    const top = Math.max(0, Math.floor(Math.min(...rects.map(r => r.top)) - 2));
     const right = Math.ceil(Math.max(...rects.map(r => r.right)) + pad);
     const bottom = Math.ceil(Math.max(...rects.map(r => r.bottom)) + pad);
     // 整数にしておくと、2倍で撮った画像の縦横が偶数になり、動画(yuv420p)に変換できる

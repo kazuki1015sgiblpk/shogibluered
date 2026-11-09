@@ -1294,6 +1294,14 @@
     border-radius:18px;
   }
   .board{border-radius:14px !important}
+  /* 盤の座標（上に筋 9〜1、右に段 一〜九）。解説や返信の「7四」を盤上で探しやすくする。
+     左にも同じ幅の余白を取り、盤が持ち駒の欄と中心をそろえたままにする */
+  .board-outer{padding:15px 15px 0 15px !important}
+  .bcoord{position:absolute;display:flex;pointer-events:none;color:var(--sub);
+    font-size:11px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+  .bcoord.files{top:0;left:15px;right:15px;height:15px}
+  .bcoord.ranks{top:15px;bottom:0;right:0;width:15px;flex-direction:column}
+  .bcoord span{flex:1;display:flex;align-items:center;justify-content:center}
   /* ダブルタップ時のブラウザ拡大抑止: 実際にタップされる駒・マスにも適用 */
   #board, #board *, #board-info{touch-action:manipulation}
   /* フリップ開始時の再描画による駒の揺れを防ぐ(常にGPUレイヤーに置く) */
@@ -1812,6 +1820,8 @@
   </div>
 
   <div class="board-outer">
+    <div class="bcoord files" id="coord-files" aria-hidden="true"></div>
+    <div class="bcoord ranks" id="coord-ranks" aria-hidden="true"></div>
     <div class="board" id="board"></div>
     <div id="board-info" hidden></div>
     <div class="board-edge"></div>
@@ -5048,6 +5058,12 @@
     curBoard = b;
     const terr = territoryOn ? territoryMap(b) : null;
     boardEl.innerHTML = "";
+    // 座標は表示マスから論理座標を引いて付ける（盤を反転すると 1〜9・九〜一 の並びになる）
+    const KAN9 = "一二三四五六七八九";
+    document.getElementById("coord-files").innerHTML =
+      [1,2,3,4,5,6,7,8,9].map(c => `<span>${10 - dispRC(1, c)[1]}</span>`).join("");
+    document.getElementById("coord-ranks").innerHTML =
+      [1,2,3,4,5,6,7,8,9].map(r => `<span>${KAN9[dispRC(r, 1)[0] - 1]}</span>`).join("");
     for(let r=1;r<=9;r++){
       for(let c=1;c<=9;c++){
         const [lr, lc] = dispRC(r, c);  // この表示マスに対応する論理座標
