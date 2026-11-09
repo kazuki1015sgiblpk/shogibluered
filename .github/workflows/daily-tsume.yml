@@ -97,6 +97,7 @@ jobs:
           ```
 
           候補から選んで `problems.json` の `problems` と `schedule` の末尾に足し、
+          `difficulty.py --write`（難易度）と `variations.py --write`（解答画面の変化）を実行してから、
           `python3 tools/tsume/publish.py` で `index.html` に反映します。
           最後に両方の検証器を通してください。
 

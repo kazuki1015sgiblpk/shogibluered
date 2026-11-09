@@ -19,6 +19,18 @@ BEGIN_S, END_S = "  /* <<TSUME:schedule>> */\n", "  /* <</TSUME:schedule>> */\n"
 js = lambda s: json.dumps(s, ensure_ascii=False)          # JSON文字列はJSリテラルとしてそのまま使える
 
 
+def moves_js(moves):
+    mv = []
+    for m in moves:
+        parts = ["s:%s" % js(m["s"])]
+        if "drop" in m: parts.append("drop:%s" % js(m["drop"]))
+        else: parts.append("from:[%d,%d]" % tuple(m["from"]))
+        parts.append("to:[%d,%d]" % tuple(m["to"]))
+        if m.get("promo"): parts.append("promo:true")
+        mv.append("{%s}" % ",".join(parts))
+    return ", ".join(mv)
+
+
 def build_problems(problems):
     out = ["  const TSUME = [\n"]
     for i, p in enumerate(problems):
@@ -32,16 +44,14 @@ def build_problems(problems):
         out += [head + "\n",
                 "     b:{%s},\n" % cells,
                 "     hand:[%s],\n" % hand]
-        if p.get("answer"):                      # 「手順を再生」で使う正解手順
-            mv = []
-            for m in p["answer"]:
-                parts = ["s:%s" % js(m["s"])]
-                if "drop" in m: parts.append("drop:%s" % js(m["drop"]))
-                else: parts.append("from:[%d,%d]" % tuple(m["from"]))
-                parts.append("to:[%d,%d]" % tuple(m["to"]))
-                if m.get("promo"): parts.append("promo:true")
-                mv.append("{%s}" % ",".join(parts))
-            out.append("     answer:[%s],\n" % ", ".join(mv))
+        if p.get("answer"):                      # 解答画面と「解答手順を見る」で使う正解手順
+            out.append("     answer:[%s],\n" % moves_js(p["answer"]))
+        if p.get("variations"):                  # 解答画面の「変化」。variations.py が付ける
+            vs = []
+            for v in p["variations"]:
+                alt = ", alt:[%s]" % ",".join(js(a) for a in v["alt"]) if v.get("alt") else ""
+                vs.append("{at:%d%s, line:[%s]}" % (v["at"], alt, moves_js(v["line"])))
+            out.append("     variations:[%s],\n" % ", ".join(vs))
         out.append("     hint:%s}%s\n" % (js(p["hint"]), tail))
     out.append("  ];\n")
     return "".join(out)
@@ -88,6 +98,10 @@ def main():
     if nolv:   # 過去の詰将棋に星が出なくなる
         print("注意: 難易度(level)が付いていない問題があります: %s" % ", ".join(nolv))
         print("      tools/.venv/bin/python tools/tsume/difficulty.py --write を実行してください")
+    novar = [p["id"] for p in problems if p.get("len", 1) > 1 and p.get("answer") and "variations" not in p]
+    if novar:  # 解答画面に変化が出なくなる
+        print("注意: 変化(variations)を計算していない問題があります: %s" % ", ".join(novar))
+        print("      tools/.venv/bin/python tools/tsume/variations.py --write を実行してください")
 
 
 if __name__ == "__main__":

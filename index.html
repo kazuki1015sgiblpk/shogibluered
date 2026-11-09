@@ -960,6 +960,29 @@
   body.playmode .seeklabels, body.playmode .movestrip{display:none !important}
   #playbar{display:flex;align-items:center;justify-content:center;gap:12px;margin:12px 0 4px;flex-wrap:wrap}
   #playbar[hidden]{display:none !important}
+  /* 詰将棋の解答画面: 正解手順と変化。手をタップするとその局面を盤に出す */
+  #tsume-answer{margin:10px 0 24px;display:flex;flex-direction:column;gap:10px}
+  #tsume-answer[hidden]{display:none !important}
+  #tsume-answer .card{background:var(--panel);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px 14px}
+  #tsume-answer .ttl{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:17px;font-weight:700}
+  #tsume-answer .ttl small{font-size:13px;color:var(--sub);font-weight:600;white-space:nowrap}
+  #tsume-answer .hintline{margin-top:6px;font-size:14px;color:var(--sub);line-height:1.6}
+  #tsume-answer h4{margin:0 0 8px;font-size:13px;color:var(--gold);letter-spacing:.12em}
+  #tsume-answer .mv{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:9px;font-size:17px;font-weight:600;cursor:pointer}
+  #tsume-answer .mv .n{width:20px;color:var(--sub);font-size:13px;text-align:right}
+  #tsume-answer .mv.start{font-size:15px;color:var(--sub)}
+  #tsume-answer .cur{background:rgba(232,185,62,.14);outline:1px solid rgba(232,185,62,.45)}
+  #tsume-answer .br{margin-left:auto;font-size:12px;color:#101216;background:var(--gold);border-radius:999px;padding:2px 8px}
+  #tsume-answer .end{font-size:14px;color:var(--sub);padding:4px 8px 0 38px}
+  #tsume-answer .var{padding:9px 8px;border-top:1px solid rgba(255,255,255,.07);font-size:15px;line-height:1.9;cursor:pointer;border-radius:9px}
+  #tsume-answer .var:first-of-type{border-top:none}
+  #tsume-answer .var .q{font-size:12px;color:var(--sub);line-height:1.4}
+  #tsume-answer .var .vm{display:inline-block;margin-right:10px;padding:0 3px;border-radius:6px}
+  #tsume-answer .var .vm:first-of-type{font-weight:700}
+  #tsume-answer .var .res{color:var(--sub);font-size:13px}
+  #tsume-answer .tag{font-size:11px;color:var(--sub);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:0 7px;margin:0 8px 0 -4px;white-space:nowrap}
+  #tsume-answer .none{font-size:14px;color:var(--sub);line-height:1.6}
+  #tsume-answer .btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:2px}
   #pb-msg{font-size:17px;font-weight:600;letter-spacing:.02em}
   #pb-msg.think{color:var(--sub)}
   .pb-btn{
@@ -1846,6 +1869,7 @@
     <button id="btn-next" class="tbtn" aria-label="1手進む"><svg viewBox="0 0 24 24"><polygon points="13.7 18 21.2 12 13.7 6" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><polygon points="3.7 18 11.2 12 3.7 6" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
   </div>
   <div id="playbar" hidden></div>
+  <div id="tsume-answer" hidden></div>
 
   <div class="movestrip" id="movestrip"></div>
   <div id="kifu-credit" hidden></div>
@@ -5457,12 +5481,14 @@
   // ---------- 対局の進行・UI ----------
   const playbarEl = document.getElementById("playbar");
   function playHud(msg){
-    if(!PLAY.on){ playbarEl.hidden = true; return; }
+    // playHud は起動直後にも呼ばれ、下で宣言する tsumeAnswerEl がまだ使えないことがあるので、毎回引く
+    document.getElementById("tsume-answer").hidden = !(PLAY.on && PLAY.answerOn);
+    if(!PLAY.on || PLAY.answerOn){ playbarEl.hidden = true; return; }
     playbarEl.hidden = false;
     if(PLAY.over){
+      // 解説（ヒント）と手順の再生は、解答画面にまとめてある
       const tsumeBtns = PLAY.tsume != null
-        ? `<button class="pb-btn" id="btn-tsume-explain">解説</button>
-           <button class="pb-btn" id="btn-tsume-replay">手順を再生</button>`
+        ? `<button class="pb-btn" id="btn-tsume-answer">解答</button>`
         : "";
       playbarEl.innerHTML = `<span id="pb-msg">${PLAY.tsume != null ? "詰将棋 終了" : "対局終了"}</span>
         ${tsumeBtns}
@@ -5470,38 +5496,32 @@
         <button class="pb-btn" id="btn-exitplay">終了する</button>`;
     }else{
       playbarEl.innerHTML = `<span id="pb-msg" class="${PLAY.thinking ? "think" : ""}">${esc(msg || (PLAY.thinking ? "考えています…" : "あなたの手番です！"))}</span>
-        <button class="pb-btn" id="btn-resign">${PLAY.tsume != null ? "降参" : "投了"}</button>`;
+        ${PLAY.tsume != null
+          ? `<button class="pb-btn" id="btn-tsume-answer">解答</button>`   // 1回押しで開く（降参はやめて解答に一本化）
+          : `<button class="pb-btn" id="btn-resign">投了</button>`}`;
     }
   }
   playbarEl.addEventListener("click", e => {
-    if(e.target.id === "btn-tsume-explain"){
-      if(typeof toggleBoardInfo === "function") toggleBoardInfo(true);
-      return;
-    }
-    if(e.target.id === "btn-tsume-replay"){
-      replayTsume();
+    if(e.target.id === "btn-tsume-answer"){
+      showTsumeAnswer();
       return;
     }
     if(e.target.id === "btn-resign"){
       if(PLAY.resignArm){
         clearTimeout(PLAY.resignTimer);
         PLAY.resignArm = false;
-        if(PLAY.tsume != null){
-          finishPlay("降参", `答え：${TSUME[PLAY.tsume].hint}`, true);   // 答えは自分で閉じるまで残す
-        }else{
-          finishPlay(`まで${PLAY.moves.length}手であなたの投了。AIの勝ち`, "またチャレンジしてください！ありがとうございました！");
-        }
+        finishPlay(`まで${PLAY.moves.length}手であなたの投了。AIの勝ち`, "またチャレンジしてください！ありがとうございました！");
       }else{
         PLAY.resignArm = true;
-        e.target.textContent = PLAY.tsume != null ? "もう一度押すと降参" : "もう一度押すと投了";
+        e.target.textContent = "もう一度押すと投了";
         PLAY.resignTimer = setTimeout(() => {
           PLAY.resignArm = false;
           const b = document.getElementById("btn-resign");
-          if(b) b.textContent = PLAY.tsume != null ? "降参" : "投了";
+          if(b) b.textContent = "投了";
         }, 3000);
       }
     }else if(e.target.id === "btn-rematch"){
-      if(PLAY.tsume != null) startTsume(PLAY.tsume); else startVsAI(PLAY.level);
+      if(PLAY.tsume != null) startTsume(PLAY.tsume, true); else startVsAI(PLAY.level);
     }
     else if(e.target.id === "btn-exitplay"){
       exitPlay();
@@ -5514,7 +5534,7 @@
       const tName = PLAY.tsume != null ? tsumeTitle(PLAY.tsume) : "";
       const tLen = PLAY.tsume != null ? (TSUME[PLAY.tsume].len || 1) : 0;
       META = PLAY.tsume != null
-        ? {event:"詰将棋", sente:"あなた", gote:tName, end:"出題中", sub:`1/${tLen}手目`}
+        ? {event:"詰将棋", sente:"あなた", gote:tName, end:"出題中", sub: PLAY.answerOn ? "解答" : `1/${tLen}手目`}
         : {event:"練習対局", sente:"あなた", gote:`AI（${(AI_LEVELS[PLAY.level]||AI_LEVELS.normal).label}）`, end:"対局開始", sub:"対局中"};
     }else{
       const tName2 = PLAY.tsume != null ? tsumeTitle(PLAY.tsume) : "";
@@ -5522,9 +5542,9 @@
       const parsed = decorateAndFinish(
         PLAY.moves.map(m => m.drop ? {s:m.s, drop:m.drop, to:[...m.to]} : {s:m.s, from:[...m.from], to:[...m.to], promo:m.promo}),
         PLAY.tsume != null
-          ? {event:"詰将棋", sente:"あなた", gote:tName2, sub:`${Math.min(PLAY.moves.length + 1, tLen2)}/${tLen2}手目`}
+          ? {event:"詰将棋", sente:"あなた", gote:tName2, sub: PLAY.answerOn ? "解答" : `${Math.min(PLAY.moves.length + 1, tLen2)}/${tLen2}手目`}
           : {event:"練習対局", sente:"あなた", gote:`AI（${(AI_LEVELS[PLAY.level]||AI_LEVELS.normal).label}）`}, "",
-        endLine || (PLAY.tsume != null ? `${Math.min(PLAY.moves.length + 1, tLen2)}/${tLen2}手目` : `対局中・${PLAY.moves.length}手目`));
+        endLine || (PLAY.tsume != null ? (PLAY.answerOn ? "解答" : `${Math.min(PLAY.moves.length + 1, tLen2)}/${tLen2}手目`) : `対局中・${PLAY.moves.length}手目`));
       MOVES = parsed.moves; META = parsed.meta; EVALS = null;
       step = MOVES.length;
     }
@@ -5667,6 +5687,109 @@
       <ul><li>${esc(q.hint)}</li></ul>
       <small>「手順を再生」で、正解の指し手を盤の上で確認できます。</small></span>`;
   }
+  // ---------- 詰将棋の解答画面: 正解手順と変化（分岐）----------
+  // 変化は問題を足すときに詰将棋エンジンで求めて持たせてある（tools/tsume/variations.py）。
+  // 手をタップすると、その手まで進めた局面を盤に出す。
+  const tsumeAnswerEl = document.getElementById("tsume-answer");
+  function tsumeStartState(q){
+    const b = {};
+    for(const k in q.b) b[k] = {...q.b[k]};
+    return {b, hands: {s: [...q.hand], g: tsumeDefHand(b, q.hand)}};
+  }
+  // 指し手の表記（▲5三飛打、△同玉 …）。直前の手と同じマスなら「同」
+  function tsumeMoveLabels(q, seq){
+    const st = tsumeStartState(q);
+    return seq.map((m, j) => {
+      const prev = j > 0 ? seq[j - 1] : null;
+      const sq = prev && prev.to[0] === m.to[0] && prev.to[1] === m.to[1]
+        ? "同" : FWD[10 - m.to[1]] + KJD[m.to[0]];
+      const pc = m.drop ? null : st.b[pk(m.from)];
+      const label = (m.s === "s" ? "▲" : "△") + sq +
+        (m.drop ? m.drop + "打" : DISP(pc.t, pc.p) + (m.promo ? "成" : ""));
+      doMoveP(st, m);
+      return label;
+    });
+  }
+  // 盤を「初形から seq まで指した局面」にする
+  function tsumeAnswerGo(seq){
+    const q = TSUME[PLAY.tsume];
+    PLAY.st = tsumeStartState(q);
+    seq.forEach(m => doMoveP(PLAY.st, m));
+    PLAY.moves = seq.map(m => ({...m}));
+    playRefresh();
+    // スマホでは手の一覧が盤の下に長く続く。タップした局面が見えるよう、盤が画面外なら盤まで戻す
+    const r = boardEl.getBoundingClientRect();
+    if(r.top < 0 || r.bottom > window.innerHeight) boardEl.scrollIntoView({behavior:"smooth", block:"center"});
+  }
+  function showTsumeAnswer(){
+    const i = PLAY.tsume;
+    if(i == null) return;
+    PLAY.over = true; PLAY.thinking = false; PLAY.answerOn = true;
+    clearToast(); clearPlaySel();
+    buildTsumeExplain(i);
+    renderTsumeAnswer(i);
+    tsumeAnswerGo([]);
+  }
+  function renderTsumeAnswer(i){
+    const q = TSUME[i];
+    const ans = q.answer || [];
+    const vars = q.variations || [];
+    const len = q.len || 1;
+    const lab = tsumeMoveLabels(q, ans);
+    const cnt = {};
+    vars.forEach(v => { cnt[v.at] = (cnt[v.at] || 0) + 1; });
+    const mainRows = ans.map((m, k) => `
+      <div class="mv" data-m="${k + 1}"><span class="n">${k + 1}</span>${lab[k]}${
+        cnt[k + 1] ? `<span class="br">変化 ${cnt[k + 1]}</span>` : ""}</div>`).join("");
+    // 変化は「何手目のかわりか」ごとにまとめる
+    const ats = [...new Set(vars.map(v => v.at))];
+    const varCards = ats.map(at => `
+      <div class="card"><h4>変化（${at}手目でほかの受けをしたとき）</h4>${
+        vars.map((v, vi) => v.at !== at ? "" : (() => {
+          const vl = tsumeMoveLabels(q, ans.slice(0, at - 1).concat(v.line)).slice(at - 1);
+          if(v.alt) vl[0] = vl[0].replace(/[歩香桂銀金角飛]打$/, "合");
+          return `<div class="var" data-v="${vi}"><div class="q">${lab[at - 1]} のかわりに</div>${
+            vl.map((t, j) => `<span class="vm" data-j="${j}">${t}</span>${
+              j === 0 && v.alt ? `<span class="tag">${v.alt.join("・")}</span>` : ""}`).join("")
+          }<span class="res">まで${at - 1 + v.line.length}手</span></div>`;
+        })()).join("")}</div>`).join("");
+    tsumeAnswerEl.innerHTML = `
+      <div class="card">
+        <div class="ttl"><span>解答</span><small>${len}手詰　${tsumeStars(i).replace(/^難易度\s*/, "")}</small></div>
+        <div class="hintline">${esc(q.hint)}</div>
+      </div>
+      <div class="card">
+        <h4>正解手順</h4>
+        <div class="mv start cur" data-m="0"><span class="n">0</span>開始図</div>
+        ${mainRows}
+        <div class="end">まで${ans.length}手で詰み</div>
+      </div>
+      ${varCards || (len > 1 ? `<div class="card"><h4>変化</h4><div class="none">玉方の受けは正解手順の1通りだけです。</div></div>` : "")}
+      <div class="btns">
+        <button class="pb-btn gold" id="btn-ans-replay">▶ 解答手順を見る</button>
+        <button class="pb-btn" id="btn-ans-back">問題に戻る</button>
+      </div>`;
+  }
+  tsumeAnswerEl.addEventListener("click", e => {
+    if(!PLAY.answerOn || PLAY.tsume == null) return;
+    const q = TSUME[PLAY.tsume], ans = q.answer || [];
+    if(e.target.closest("#btn-ans-replay")){ replayTsume(); return; }
+    if(e.target.closest("#btn-ans-back")){ startTsume(PLAY.tsume, true); return; }
+    const mark = el => {
+      tsumeAnswerEl.querySelectorAll(".cur").forEach(x => x.classList.remove("cur"));
+      el.classList.add("cur");
+    };
+    const row = e.target.closest("[data-m]");
+    if(row){ mark(row); tsumeAnswerGo(ans.slice(0, +row.dataset.m)); return; }
+    const vEl = e.target.closest("[data-v]");
+    if(vEl){
+      const v = q.variations[+vEl.dataset.v];
+      const jEl = e.target.closest("[data-j]");
+      const upto = jEl ? +jEl.dataset.j + 1 : v.line.length;   // 手をタップならその手まで、行ならその変化の詰みまで
+      mark(jEl || vEl);
+      tsumeAnswerGo(ans.slice(0, v.at - 1).concat(v.line.slice(0, upto)));
+    }
+  });
   // 詰将棋の手順を「観戦モード」に載せる(観るタブと同じシークバー・再生・1手送りが使える)
   function replayTsume(){
     const q = TSUME[PLAY.tsume];
@@ -5731,11 +5854,13 @@
      b:{"2-2":{t:"玉",s:"g"}, "4-1":{t:"角",s:"s"}, "3-1":{t:"香",s:"g"}},
      hand:["飛","銀"],
      answer:[{s:"s",drop:"飛",to:[2,3]}, {s:"g",from:[2,2],to:[1,1]}, {s:"s",drop:"銀",to:[2,1]}],
+     variations:[{at:2, line:[{s:"g",from:[2,2],to:[1,2]}, {s:"s",drop:"銀",to:[2,1]}]}],
      hint:"飛車は玉から一つ離して打ちます（角が守ってくれます）。隅に逃げたら銀を打って仕上げです"},
     {name:"第7問 成桂で呼び込む", len:5, orig:true, level:5,
      b:{"1-4":{t:"玉",s:"g"}, "2-4":{t:"歩",s:"g"}, "4-3":{t:"桂",s:"s"}, "4-4":{t:"金",s:"s"}},
      hand:["金","銀"],
      answer:[{s:"s",from:[4,3],to:[2,4],promo:true}, {s:"g",from:[1,4],to:[2,4]}, {s:"s",drop:"銀",to:[3,4]}, {s:"g",from:[2,4],to:[1,3]}, {s:"s",drop:"金",to:[2,3]}],
+     variations:[{at:4, line:[{s:"g",from:[2,4],to:[1,4]}, {s:"s",drop:"金",to:[2,4]}]}, {at:4, line:[{s:"g",from:[2,4],to:[1,5]}, {s:"s",drop:"金",to:[2,5]}]}],
      hint:"まず桂を成って王手し、玉を呼び込みます。逃げた玉を銀で押さえ、最後に金を打ってぴたりと詰みます（▲6二桂成→▲6三銀→▲5二金）"},
     {name:"第8問 金の追いかけっこ", len:5, level:2,
      b:{"3-1":{t:"玉",s:"g"}, "6-2":{t:"飛",s:"s"}},
@@ -5746,6 +5871,7 @@
      b:{"1-4":{t:"玉",s:"g"}, "4-4":{t:"桂",s:"s"}, "2-6":{t:"銀",s:"g"}},
      hand:["銀","飛"],
      answer:[{s:"s",drop:"銀",to:[2,3]}, {s:"g",from:[1,4],to:[2,4]}, {s:"s",drop:"飛",to:[3,4]}, {s:"g",from:[2,4],to:[1,5]}, {s:"s",from:[3,4],to:[1,4],promo:true}],
+     variations:[{at:2, line:[{s:"g",from:[1,4],to:[1,5]}, {s:"s",drop:"飛",to:[1,4]}]}],
      hint:"銀は桂が支えているマスへ打ちます。飛車は玉の真下に。最後は飛車を成って斜めへ"},
     {name:"第9問 竜で追い、銀でふたをする", len:5, level:3,
      b:{"3-1":{t:"玉",s:"g"}, "4-4":{t:"角",s:"s"}, "2-4":{t:"飛",s:"s"}},
@@ -5756,31 +5882,37 @@
      b:{"1-3":{t:"玉",s:"g"}, "4-2":{t:"角",s:"s"}},
      hand:["飛","金"],
      answer:[{s:"s",drop:"飛",to:[1,4]}, {s:"g",from:[1,3],to:[2,3]}, {s:"s",drop:"金",to:[3,3]}, {s:"g",from:[2,3],to:[1,4]}, {s:"s",from:[3,3],to:[2,4]}],
+     variations:[{at:2, line:[{s:"g",from:[1,3],to:[2,2]}, {s:"s",drop:"金",to:[3,1]}, {s:"g",from:[2,2],to:[2,3]}, {s:"s",from:[4,2],to:[2,4],promo:true}]}, {at:2, line:[{s:"g",from:[1,3],to:[1,4]}, {s:"s",drop:"金",to:[2,4]}]}],
      hint:"飛車は玉の横に打ちます。金は角が支えているマスへ。最後は金を寄せて仕上げです"},
     {name:"第13問 角を取らせて香で仕留める", len:5, level:5,
      b:{"2-1":{t:"玉",s:"g"}, "3-1":{t:"角",s:"s"}, "5-1":{t:"金",s:"s"}},
      hand:["香","飛"],
      answer:[{s:"s",drop:"飛",to:[2,2]}, {s:"g",from:[2,1],to:[3,1]}, {s:"s",from:[2,2],to:[4,2],promo:true}, {s:"g",from:[3,1],to:[2,1]}, {s:"s",drop:"香",to:[3,1]}],
+     variations:[{at:2, line:[{s:"g",from:[2,1],to:[1,1]}, {s:"s",drop:"香",to:[2,1]}]}],
      hint:"飛車は玉の隣に打ちます。玉が角を取ったら飛車を成り、最後は香を打ちましょう"},
     {name:"第11問 飛車を取らせて金で詰ます", len:5, level:5,
      b:{"1-4":{t:"玉",s:"g"}, "4-3":{t:"角",s:"s"}},
      hand:["金","飛"],
      answer:[{s:"s",drop:"飛",to:[1,5]}, {s:"g",from:[1,4],to:[2,4]}, {s:"s",drop:"金",to:[3,4]}, {s:"g",from:[2,4],to:[1,5]}, {s:"s",from:[3,4],to:[2,5]}],
+     variations:[{at:2, line:[{s:"g",from:[1,4],to:[2,3]}, {s:"s",drop:"金",to:[3,2]}, {s:"g",from:[2,3],to:[2,4]}, {s:"s",from:[4,3],to:[2,5],promo:true}]}, {at:2, line:[{s:"g",from:[1,4],to:[1,5]}, {s:"s",drop:"金",to:[2,5]}]}],
      hint:"飛車は玉の隣に打ちます。金は角が支えるマスへ。玉が飛車を取ったら金を寄せましょう"},
     {name:"第14問 と金から始める", len:5, level:3,
      b:{"1-4":{t:"玉",s:"g"}, "3-3":{t:"歩",s:"s"}, "2-4":{t:"角",s:"s"}},
      hand:["金","金"],
      answer:[{s:"s",from:[3,3],to:[2,3],promo:true}, {s:"g",from:[1,4],to:[2,5]}, {s:"s",drop:"金",to:[3,5]}, {s:"g",from:[2,5],to:[1,6]}, {s:"s",drop:"金",to:[2,6]}],
+     variations:[{at:2, line:[{s:"g",from:[1,4],to:[2,3]}, {s:"s",drop:"金",to:[3,3]}, {s:"g",from:[2,3],to:[1,4]}, {s:"s",drop:"金",to:[1,5]}]}],
      hint:"まず歩を成りましょう。玉が横に逃げたら金を打ち、最後はもう一枚の金でふたをします"},
     {name:"第15問 桂の二段攻め", len:5, level:3,
      b:{"2-1":{t:"玉",s:"g"}, "5-1":{t:"桂",s:"s"}, "3-4":{t:"角",s:"s"}, "3-1":{t:"香",s:"g"}},
      hand:["桂"],
      answer:[{s:"s",drop:"桂",to:[4,2]}, {s:"g",from:[2,1],to:[2,2]}, {s:"s",from:[3,4],to:[2,3],promo:true}, {s:"g",from:[2,2],to:[1,1]}, {s:"s",from:[5,1],to:[3,2]}],
+     variations:[{at:2, line:[{s:"g",from:[2,1],to:[1,1]}, {s:"s",from:[5,1],to:[3,2]}, {s:"g",from:[1,1],to:[2,2]}, {s:"s",from:[3,4],to:[2,3],promo:true}]}],
      hint:"初手は桂打ちの王手。角は成って馬に。最後の桂は成らずに跳ねましょう"},
     {name:"第16問 香を取って打ち直す", len:5, level:3,
      b:{"3-1":{t:"玉",s:"g"}, "6-2":{t:"桂",s:"s"}, "2-3":{t:"銀",s:"s"}, "3-2":{t:"香",s:"g"}},
      hand:["金"],
      answer:[{s:"s",drop:"金",to:[4,1]}, {s:"g",from:[3,1],to:[2,2]}, {s:"s",from:[4,1],to:[3,2]}, {s:"g",from:[2,2],to:[1,1]}, {s:"s",drop:"香",to:[2,1]}],
+     variations:[{at:2, line:[{s:"g",from:[3,1],to:[2,1]}, {s:"s",from:[4,1],to:[3,2]}, {s:"g",from:[2,1],to:[1,1]}, {s:"s",drop:"香",to:[2,1]}]}],
      hint:"金は玉の隣に打ちます。玉が逃げたら金で香を取りましょう。その香が最後の一手になります"},
     {name:"第17問 と金から始まる", len:5, level:5,
      b:{"1-1":{t:"玉",s:"g"}, "3-1":{t:"桂",s:"s"}, "2-2":{t:"歩",s:"s"}, "4-1":{t:"香",s:"g"}},
@@ -5791,21 +5923,25 @@
      b:{"2-3":{t:"玉",s:"g"}, "4-2":{t:"角",s:"s"}, "1-2":{t:"香",s:"g"}},
      hand:["金","桂"],
      answer:[{s:"s",drop:"金",to:[3,3]}, {s:"g",from:[2,3],to:[1,3]}, {s:"s",drop:"桂",to:[3,4]}, {s:"g",from:[1,3],to:[1,4]}, {s:"s",from:[3,3],to:[2,4]}],
+     variations:[{at:2, line:[{s:"g",from:[2,3],to:[1,4]}, {s:"s",from:[3,3],to:[2,4]}]}],
      hint:"金を玉の隣に打ちます。玉が上がったら桂を打ち、最後は金を斜めに寄せましょう"},
     {name:"第19問 竜で挟んで銀でふた", len:5, level:4,
      b:{"1-3":{t:"玉",s:"g"}, "3-2":{t:"飛",s:"s"}, "1-4":{t:"香",s:"g"}},
      hand:["銀"],
      answer:[{s:"s",from:[3,2],to:[3,3],promo:true}, {s:"g",from:[1,3],to:[1,2]}, {s:"s",drop:"銀",to:[2,2]}, {s:"g",from:[1,2],to:[2,1]}, {s:"s",from:[3,3],to:[3,1]}],
+     variations:[{at:2, alt:["歩","香","桂","銀","金","角","飛"], line:[{s:"g",drop:"歩",to:[2,3]}, {s:"s",drop:"銀",to:[2,2]}]}],
      hint:"まず飛車を成りましょう。銀は玉の隣に打ち、最後は竜を端まで寄せます"},
     {name:"第20問 竜が二度寄る", len:5, level:5,
      b:{"2-2":{t:"玉",s:"g"}, "3-3":{t:"桂",s:"s"}, "4-1":{t:"角",s:"s"}, "3-1":{t:"金",s:"g"}},
      hand:["飛"],
      answer:[{s:"s",drop:"飛",to:[2,3]}, {s:"g",from:[2,2],to:[1,1]}, {s:"s",from:[2,3],to:[1,3],promo:true}, {s:"g",from:[1,1],to:[2,1]}, {s:"s",from:[1,3],to:[1,2]}],
+     variations:[{at:4, alt:["歩","香","桂","銀","金","角","飛"], line:[{s:"g",drop:"歩",to:[1,2]}, {s:"s",from:[1,3],to:[1,2]}]}],
      hint:"飛車は玉の隣に打ちます。玉が隅に逃げたら成って竜に。あとは竜で追いかけましょう"},
     {name:"第21問 二枚の桂で挟む", len:5, level:3,
      b:{"2-4":{t:"玉",s:"g"}, "1-7":{t:"角",s:"s"}, "5-3":{t:"香",s:"s"}, "3-4":{t:"桂",s:"g"}},
      hand:["桂","桂"],
      answer:[{s:"s",drop:"桂",to:[4,5]}, {s:"g",from:[2,4],to:[1,5]}, {s:"s",from:[1,7],to:[2,6],promo:true}, {s:"g",from:[1,5],to:[1,4]}, {s:"s",drop:"桂",to:[3,5]}],
+     variations:[{at:2, line:[{s:"g",from:[2,4],to:[1,4]}, {s:"s",drop:"桂",to:[3,5]}, {s:"g",from:[1,4],to:[1,5]}, {s:"s",from:[1,7],to:[2,6],promo:true}]}, {at:2, line:[{s:"g",from:[2,4],to:[2,5]}, {s:"s",from:[1,7],to:[2,6],promo:true}, {s:"g",from:[2,5],to:[1,4]}, {s:"s",drop:"桂",to:[3,5]}]}],
      hint:"まず桂を打って王手。玉が逃げたら角を成りましょう。最後はもう一枚の桂です"},
     {name:"第22問 馬を捨てて呼び込む", len:5, level:3,
      b:{"2-2":{t:"玉",s:"g"}, "3-1":{t:"香",s:"s"}, "2-1":{t:"角",s:"s"}, "1-3":{t:"銀",s:"g"}},
@@ -5831,6 +5967,7 @@
      b:{"3-1":{t:"玉",s:"g"}, "5-1":{t:"銀",s:"s"}, "2-3":{t:"金",s:"s"}},
      hand:["銀","桂"],
      answer:[{s:"s",drop:"銀",to:[2,2]}, {s:"g",from:[3,1],to:[3,2]}, {s:"s",from:[2,3],to:[3,3]}, {s:"g",from:[3,2],to:[2,1]}, {s:"s",drop:"桂",to:[4,2]}],
+     variations:[{at:2, line:[{s:"g",from:[3,1],to:[2,1]}, {s:"s",drop:"桂",to:[4,2]}, {s:"g",from:[2,1],to:[3,2]}, {s:"s",from:[2,3],to:[3,3]}]}],
      hint:"銀を打って玉を動かし、盤上の金を寄せます。最後は桂を打ちましょう"},
     {name:"第27問 歩から始まる追い込み", len:5, level:2,
      b:{"1-1":{t:"玉",s:"g"}, "4-3":{t:"桂",s:"s"}, "3-2":{t:"角",s:"s"}},
@@ -5841,6 +5978,7 @@
      b:{"1-1":{t:"玉",s:"g"}, "3-4":{t:"角",s:"s"}},
      hand:["角","金"],
      answer:[{s:"s",drop:"角",to:[3,3]}, {s:"g",from:[1,1],to:[2,1]}, {s:"s",from:[3,4],to:[1,2],promo:true}, {s:"g",from:[2,1],to:[1,2]}, {s:"s",drop:"金",to:[2,2]}],
+     variations:[{at:2, alt:["歩","香","桂","銀","金","飛"], line:[{s:"g",drop:"歩",to:[2,2]}, {s:"s",drop:"金",to:[1,2]}, {s:"g",from:[1,1],to:[2,1]}, {s:"s",from:[3,3],to:[2,2],promo:true}]}, {at:4, line:[{s:"g",from:[2,1],to:[3,1]}, {s:"s",drop:"金",to:[4,2]}]}, {at:4, line:[{s:"g",from:[2,1],to:[3,2]}, {s:"s",drop:"金",to:[4,2]}]}],
      hint:"角は離して打ちます。受けの駒を打たれたら、金を捨てて玉を呼び込みましょう"},
     {name:"第29問 飛車二枚で押し下げる", len:5, level:4,
      b:{"2-1":{t:"玉",s:"g"}, "2-3":{t:"金",s:"s"}, "1-1":{t:"香",s:"g"}},
@@ -5861,6 +5999,7 @@
      b:{"2-1":{t:"玉",s:"g"}, "5-2":{t:"飛",s:"s"}, "4-1":{t:"金",s:"g"}},
      hand:["銀"],
      answer:[{s:"s",drop:"銀",to:[3,2]}, {s:"g",from:[2,1],to:[3,1]}, {s:"s",from:[3,2],to:[4,1],promo:true}, {s:"g",from:[3,1],to:[2,1]}, {s:"s",drop:"金",to:[2,2]}],
+     variations:[{at:2, line:[{s:"g",from:[2,1],to:[1,1]}, {s:"s",from:[3,2],to:[2,2],promo:true}]}, {at:2, line:[{s:"g",from:[2,1],to:[1,2]}, {s:"s",from:[3,2],to:[2,2],promo:true}]}, {at:4, line:[{s:"g",from:[3,1],to:[4,1]}, {s:"s",drop:"金",to:[4,2]}]}],
      hint:"銀は玉の隣に打ちます。玉が逃げたら銀を成り、戻ってきたところへ金を打ちましょう"},
     {name:"第33問 香から桂、そして馬", len:5, level:2,
      b:{"1-1":{t:"玉",s:"g"}, "4-1":{t:"角",s:"s"}, "3-1":{t:"銀",s:"s"}},
@@ -5876,16 +6015,19 @@
      b:{"1-2":{t:"玉",s:"g"}, "4-3":{t:"香",s:"s"}, "4-1":{t:"歩",s:"s"}},
      hand:["飛","香"],
      answer:[{s:"s",drop:"飛",to:[1,3]}, {s:"g",from:[1,2],to:[2,2]}, {s:"s",from:[1,3],to:[2,3],promo:true}, {s:"g",from:[2,2],to:[1,1]}, {s:"s",drop:"香",to:[2,1]}],
+     variations:[{at:2, line:[{s:"g",from:[1,2],to:[2,1]}, {s:"s",from:[1,3],to:[2,3],promo:true}, {s:"g",from:[2,1],to:[1,1]}, {s:"s",drop:"香",to:[2,1]}]}],
      hint:"飛車を打って王手し、成って竜にします。最後は香を打ちましょう"},
     {name:"第36問 香を取らせて金で寄せる", len:5, level:3,
      b:{"1-1":{t:"玉",s:"g"}, "4-1":{t:"金",s:"s"}, "4-2":{t:"香",s:"s"}},
      hand:["香"],
      answer:[{s:"s",drop:"香",to:[2,1]}, {s:"g",from:[1,1],to:[2,1]}, {s:"s",from:[4,1],to:[3,2]}, {s:"g",from:[2,1],to:[1,2]}, {s:"s",from:[3,2],to:[2,2]}],
+     variations:[{at:4, line:[{s:"g",from:[2,1],to:[1,1]}, {s:"s",from:[3,2],to:[2,2]}]}],
      hint:"香を玉の隣に打ちます。取られても構いません。あとは金を寄せていきましょう"},
     {name:"第37問 飛車を回して角", len:5, level:5,
      b:{"1-2":{t:"玉",s:"g"}, "4-3":{t:"飛",s:"s"}, "1-3":{t:"銀",s:"s"}, "1-1":{t:"桂",s:"g"}},
      hand:["角","銀"],
      answer:[{s:"s",drop:"銀",to:[2,3]}, {s:"g",from:[1,2],to:[2,1]}, {s:"s",from:[4,3],to:[4,1]}, {s:"g",drop:"金",to:[3,1]}, {s:"s",drop:"角",to:[1,2]}],
+     variations:[{at:4, alt:["歩","香","桂","銀","角","飛"], line:[{s:"g",drop:"歩",to:[3,1]}, {s:"s",drop:"角",to:[1,2]}]}],
      hint:"銀を打って王手。飛車は横に回して使いましょう。最後は角を離して打ちます"},
     {name:"第38問 成桂から香へ", len:5, level:4,
      b:{"1-1":{t:"玉",s:"g"}, "2-3":{t:"飛",s:"s"}},
@@ -5901,16 +6043,19 @@
      b:{"2-2":{t:"玉",s:"g"}, "4-4":{t:"金",s:"s"}, "4-2":{t:"角",s:"s"}, "1-1":{t:"金",s:"g"}},
      hand:["銀"],
      answer:[{s:"s",from:[4,4],to:[3,3]}, {s:"g",from:[2,2],to:[2,1]}, {s:"s",drop:"銀",to:[3,2]}, {s:"g",from:[2,1],to:[1,2]}, {s:"s",from:[3,3],to:[2,3]}],
+     variations:[{at:2, line:[{s:"g",from:[2,2],to:[1,2]}, {s:"s",drop:"銀",to:[2,3]}, {s:"g",from:[1,2],to:[2,1]}, {s:"s",from:[3,3],to:[3,2]}]}, {at:2, line:[{s:"g",from:[2,2],to:[1,3]}, {s:"s",drop:"銀",to:[2,3]}]}],
      hint:"まず金を寄せて王手。玉が逃げたら銀を打ち、最後は金を寄せましょう"},
     {name:"第41問 銀を成って二度寄る", len:5, level:2,
      b:{"3-1":{t:"玉",s:"g"}, "5-1":{t:"歩",s:"s"}, "5-2":{t:"飛",s:"s"}},
      hand:["銀"],
      answer:[{s:"s",drop:"銀",to:[4,1]}, {s:"g",from:[3,1],to:[2,1]}, {s:"s",from:[4,1],to:[3,2],promo:true}, {s:"g",from:[2,1],to:[1,2]}, {s:"s",from:[3,2],to:[2,2]}],
+     variations:[{at:4, line:[{s:"g",from:[2,1],to:[1,1]}, {s:"s",from:[3,2],to:[2,2]}]}],
      hint:"銀は玉の真下に打ちます。玉が上がったら、銀を成って追いかけましょう"},
     {name:"第42問 二枚の飛車と桂", len:5, level:4,
      b:{"2-4":{t:"玉",s:"g"}, "4-5":{t:"飛",s:"s"}, "3-2":{t:"飛",s:"s"}, "1-3":{t:"桂",s:"g"}},
      hand:["桂"],
      answer:[{s:"s",from:[4,5],to:[3,5],promo:true}, {s:"g",from:[2,4],to:[1,4]}, {s:"s",drop:"桂",to:[3,3]}, {s:"g",from:[1,4],to:[2,3]}, {s:"s",from:[3,2],to:[1,2],promo:true}],
+     variations:[{at:2, line:[{s:"g",from:[2,4],to:[2,3]}, {s:"s",drop:"桂",to:[4,4]}, {s:"g",from:[2,3],to:[1,4]}, {s:"s",from:[3,5],to:[2,5]}]}],
      hint:"まず5四の飛車を成りましょう。玉が下がったら桂を打ち、最後は8三の飛車を成ります"},
     {name:"第43問 銀を取らせて竜と桂", len:5, level:5,
      b:{"1-1":{t:"玉",s:"g"}, "1-4":{t:"銀",s:"s"}, "1-2":{t:"銀",s:"s"}},
@@ -5921,31 +6066,37 @@
      b:{"3-1":{t:"玉",s:"g"}, "6-2":{t:"香",s:"s"}, "5-3":{t:"香",s:"s"}},
      hand:["金"],
      answer:[{s:"s",drop:"金",to:[4,2]}, {s:"g",from:[3,1],to:[2,1]}, {s:"s",from:[4,2],to:[3,2]}, {s:"g",from:[2,1],to:[1,2]}, {s:"s",from:[3,2],to:[2,2]}],
+     variations:[{at:2, line:[{s:"g",from:[3,1],to:[2,2]}, {s:"s",from:[4,2],to:[3,2]}, {s:"g",from:[2,2],to:[1,2]}, {s:"s",from:[3,2],to:[2,2]}]}, {at:4, line:[{s:"g",from:[2,1],to:[1,1]}, {s:"s",from:[3,2],to:[2,2]}]}],
      hint:"金は玉の斜め下に打ちます。玉が上がるたびに、金も一段ずつついていきましょう"},
     {name:"第45問 合駒を二度かわす", len:5, level:5,
      b:{"1-1":{t:"玉",s:"g"}, "3-3":{t:"飛",s:"s"}, "3-1":{t:"桂",s:"g"}},
      hand:["飛"],
      answer:[{s:"s",drop:"飛",to:[1,3]}, {s:"g",drop:"角",to:[1,2]}, {s:"s",from:[3,3],to:[3,1],promo:true}, {s:"g",drop:"金",to:[2,1]}, {s:"s",drop:"桂",to:[3,2]}],
+     variations:[{at:2, line:[{s:"g",from:[1,1],to:[2,1]}, {s:"s",from:[3,3],to:[2,3],promo:true}, {s:"g",drop:"歩",to:[2,2]}, {s:"s",from:[1,3],to:[1,2],promo:true}]}, {at:2, line:[{s:"g",from:[1,1],to:[2,2]}, {s:"s",from:[3,3],to:[2,3],promo:true}]}, {at:2, alt:["歩","香","桂","銀","金"], line:[{s:"g",drop:"歩",to:[1,2]}, {s:"s",from:[3,3],to:[3,1],promo:true}, {s:"g",drop:"歩",to:[2,1]}, {s:"s",drop:"桂",to:[3,2]}]}, {at:4, alt:["歩","香","桂","銀","角"], line:[{s:"g",drop:"歩",to:[2,1]}, {s:"s",drop:"桂",to:[3,2]}]}],
      hint:"飛車は玉と同じ段に打ちます。盤上の飛車を成って桂を取り、その桂を打ちましょう"},
     {name:"第46問 角を成って金で締める", len:5, level:4,
      b:{"1-2":{t:"玉",s:"g"}, "1-4":{t:"角",s:"s"}, "2-1":{t:"銀",s:"g"}},
      hand:["飛","金"],
      answer:[{s:"s",drop:"飛",to:[1,3]}, {s:"g",from:[1,2],to:[2,2]}, {s:"s",from:[1,4],to:[2,3],promo:true}, {s:"g",from:[2,2],to:[3,1]}, {s:"s",drop:"金",to:[4,1]}],
+     variations:[{at:2, line:[{s:"g",from:[1,2],to:[1,3]}, {s:"s",drop:"金",to:[2,3]}]}],
      hint:"飛車は玉の隣に打ちます。玉が動いたら角を成り、最後は金を玉の真下に打ちましょう"},
     {name:"第47問 竜が端から戻る", len:5, level:4,
      b:{"1-1":{t:"玉",s:"g"}, "2-4":{t:"香",s:"s"}, "3-3":{t:"飛",s:"s"}},
      hand:["銀"],
      answer:[{s:"s",from:[3,3],to:[3,1],promo:true}, {s:"g",from:[1,1],to:[1,2]}, {s:"s",drop:"銀",to:[2,2]}, {s:"g",from:[1,2],to:[2,3]}, {s:"s",from:[3,1],to:[3,3]}],
+     variations:[{at:2, alt:["歩","香","桂","銀","金","角","飛"], line:[{s:"g",drop:"歩",to:[2,1]}, {s:"s",drop:"銀",to:[2,2]}]}],
      hint:"まず飛車を端へ動かして成りましょう。銀を打って王手し、最後は竜を寄せます"},
     {name:"第48問 金と香の連係", len:5, level:2,
      b:{"3-2":{t:"玉",s:"g"}, "5-3":{t:"香",s:"s"}, "6-1":{t:"香",s:"s"}},
      hand:["金"],
      answer:[{s:"s",drop:"金",to:[4,1]}, {s:"g",from:[3,2],to:[2,1]}, {s:"s",from:[4,1],to:[3,1]}, {s:"g",from:[2,1],to:[1,2]}, {s:"s",from:[3,1],to:[2,1]}],
+     variations:[{at:2, line:[{s:"g",from:[3,2],to:[2,2]}, {s:"s",from:[4,1],to:[3,1]}, {s:"g",from:[2,2],to:[1,2]}, {s:"s",from:[3,1],to:[2,1]}]}, {at:4, line:[{s:"g",from:[2,1],to:[1,1]}, {s:"s",from:[3,1],to:[2,1]}]}],
      hint:"金は玉の斜め下に打ちます。玉が逃げたら金を寄せ、もう一度寄せましょう"},
     {name:"第49問 合駒の金を越えて", len:5, level:5,
      b:{"2-1":{t:"玉",s:"g"}, "3-3":{t:"銀",s:"s"}, "1-3":{t:"銀",s:"s"}},
      hand:["銀","香"],
      answer:[{s:"s",from:[1,3],to:[2,2],promo:true}, {s:"g",from:[2,1],to:[3,1]}, {s:"s",drop:"香",to:[5,1]}, {s:"g",drop:"金",to:[4,1]}, {s:"s",drop:"銀",to:[4,2]}],
+     variations:[{at:4, alt:["歩","香","桂","銀","角","飛"], line:[{s:"g",drop:"歩",to:[4,1]}, {s:"s",drop:"銀",to:[4,2]}]}],
      hint:"まず銀を成って王手。玉が下がったら香を離して打ち、受けられたら銀を打ちましょう"},
     {name:"第50問 金を捨てて竜で決める", len:5, level:5,
      b:{"3-3":{t:"玉",s:"g"}, "2-4":{t:"飛",s:"s"}, "4-2":{t:"香",s:"g"}},
@@ -5956,11 +6107,13 @@
      b:{"1-4":{t:"玉",s:"g"}, "2-6":{t:"飛",s:"s"}},
      hand:["桂","銀"],
      answer:[{s:"s",drop:"桂",to:[3,5]}, {s:"g",from:[1,4],to:[1,5]}, {s:"s",from:[3,5],to:[1,6],promo:true}, {s:"g",from:[1,5],to:[1,4]}, {s:"s",drop:"銀",to:[2,3]}],
+     variations:[{at:2, line:[{s:"g",from:[1,4],to:[1,3]}, {s:"s",drop:"銀",to:[2,2]}]}],
      hint:"桂を打って王手。玉が動いたら桂を成りましょう。最後は銀を斜めに打ちます"},
     {name:"第52問 合駒の金をよけて", len:5, level:5,
      b:{"3-1":{t:"玉",s:"g"}, "4-3":{t:"飛",s:"s"}, "2-1":{t:"歩",s:"g"}},
      hand:["飛","桂"],
      answer:[{s:"s",drop:"飛",to:[3,3]}, {s:"g",drop:"金",to:[3,2]}, {s:"s",drop:"桂",to:[5,2]}, {s:"g",from:[3,1],to:[2,2]}, {s:"s",from:[3,3],to:[1,3],promo:true}],
+     variations:[{at:2, line:[{s:"g",from:[3,1],to:[2,2]}, {s:"s",from:[3,3],to:[2,3],promo:true}, {s:"g",from:[2,2],to:[1,1]}, {s:"s",drop:"桂",to:[3,2]}]}, {at:2, alt:["歩","香","桂","銀","角"], line:[{s:"g",drop:"歩",to:[3,2]}, {s:"s",drop:"桂",to:[5,2]}, {s:"g",from:[3,1],to:[2,2]}, {s:"s",from:[3,3],to:[1,3],promo:true}]}],
      hint:"飛車は玉と同じ段に打ちます。受けられたら桂を打ち、玉が動いたら飛車を成りましょう"},
     {name:"第53問 玉を引きずり出す", len:5, level:4,
      b:{"3-3":{t:"玉",s:"g"}, "2-2":{t:"飛",s:"s"}, "6-5":{t:"桂",s:"s"}, "2-4":{t:"桂",s:"g"}},
@@ -5971,26 +6124,31 @@
      b:{"2-3":{t:"玉",s:"g"}, "5-3":{t:"金",s:"s"}, "2-4":{t:"銀",s:"s"}},
      hand:["金","銀"],
      answer:[{s:"s",drop:"銀",to:[3,3]}, {s:"g",from:[2,3],to:[3,2]}, {s:"s",from:[5,3],to:[4,2]}, {s:"g",from:[3,2],to:[2,1]}, {s:"s",drop:"金",to:[2,2]}],
+     variations:[{at:2, line:[{s:"g",from:[2,3],to:[1,2]}, {s:"s",drop:"金",to:[2,2]}]}, {at:2, line:[{s:"g",from:[2,3],to:[3,4]}, {s:"s",drop:"金",to:[3,5]}]}],
      hint:"銀は玉の真下に打ちます。玉が逃げたら盤上の金を寄せ、最後は金を打ちましょう"},
     {name:"第55問 合駒の角を越えて", len:5, level:5,
      b:{"3-1":{t:"玉",s:"g"}, "6-2":{t:"香",s:"s"}, "6-1":{t:"歩",s:"g"}},
      hand:["角","香"],
      answer:[{s:"s",drop:"香",to:[5,1]}, {s:"g",drop:"角",to:[4,1]}, {s:"s",drop:"角",to:[1,3]}, {s:"g",from:[3,1],to:[2,1]}, {s:"s",from:[1,3],to:[2,2],promo:true}],
+     variations:[{at:2, alt:["香","桂","銀","金","飛"], line:[{s:"g",drop:"香",to:[4,1]}, {s:"s",drop:"角",to:[1,3]}, {s:"g",from:[3,1],to:[2,1]}, {s:"s",from:[1,3],to:[2,2],promo:true}]}, {at:4, alt:["歩","香","桂","銀","金","飛"], line:[{s:"g",drop:"歩",to:[2,2]}, {s:"s",from:[1,3],to:[2,2],promo:true}]}],
      hint:"香は玉から少し離して打ちます。受けられたら角を遠くから打ち、最後は角を成りましょう"},
     {name:"第56問 竜で追って銀でとどめ", len:5, level:5,
      b:{"2-4":{t:"玉",s:"g"}, "2-5":{t:"銀",s:"s"}, "3-2":{t:"飛",s:"s"}, "1-2":{t:"歩",s:"g"}},
      hand:["銀"],
      answer:[{s:"s",from:[3,2],to:[3,4],promo:true}, {s:"g",from:[2,4],to:[1,3]}, {s:"s",from:[3,4],to:[3,3]}, {s:"g",drop:"金",to:[2,3]}, {s:"s",drop:"銀",to:[2,4]}],
+     variations:[{at:4, alt:["歩","香","桂","銀","角","飛"], line:[{s:"g",drop:"歩",to:[2,3]}, {s:"s",drop:"銀",to:[2,4]}]}],
      hint:"まず飛車を成りましょう。玉が下がったら竜を寄せ、受けられたら銀を打ちます"},
     {name:"第57問 竜を往復させて銀", len:5, level:5,
      b:{"1-3":{t:"玉",s:"g"}, "3-6":{t:"角",s:"s"}, "3-1":{t:"飛",s:"s"}},
      hand:["銀"],
      answer:[{s:"s",from:[3,1],to:[3,3],promo:true}, {s:"g",from:[1,3],to:[1,2]}, {s:"s",drop:"銀",to:[2,2]}, {s:"g",from:[1,2],to:[2,1]}, {s:"s",from:[3,3],to:[3,1]}],
+     variations:[{at:2, alt:["歩","香","桂","銀","金","角","飛"], line:[{s:"g",drop:"歩",to:[2,3]}, {s:"s",drop:"銀",to:[2,2]}]}],
      hint:"飛車は横に動かして成りましょう。銀は玉の真下に打ち、最後は竜を端へ寄せます"},
     {name:"第58問 合駒の角を金で払う", len:5, level:4,
      b:{"3-1":{t:"玉",s:"g"}, "2-2":{t:"金",s:"s"}, "4-3":{t:"桂",s:"s"}, "5-1":{t:"香",s:"g"}},
      hand:["金","角"],
      answer:[{s:"s",drop:"角",to:[5,3]}, {s:"g",drop:"角",to:[4,2]}, {s:"s",drop:"金",to:[3,2]}, {s:"g",from:[3,1],to:[4,1]}, {s:"s",from:[3,2],to:[4,2]}],
+     variations:[{at:2, line:[{s:"g",from:[3,1],to:[4,1]}, {s:"s",drop:"金",to:[4,2]}]}, {at:2, alt:["歩","香","桂","銀","金","飛"], line:[{s:"g",drop:"歩",to:[4,2]}, {s:"s",drop:"金",to:[3,2]}, {s:"g",from:[3,1],to:[4,1]}, {s:"s",from:[3,2],to:[4,2]}]}],
      hint:"角は斜めに離して打ちます。受けられたら金を玉の隣に打ち、最後は合駒の角を金で取りましょう"},
     {name:"第59問 歩を捨てて馬と竜", len:5, level:4,
      b:{"1-2":{t:"玉",s:"g"}, "4-1":{t:"角",s:"s"}, "3-1":{t:"飛",s:"s"}, "1-3":{t:"香",s:"g"}},
@@ -6006,46 +6164,55 @@
      b:{"2-1":{t:"玉",s:"g"}, "3-3":{t:"金",s:"s"}, "1-1":{t:"金",s:"g"}},
      hand:["桂","飛"],
      answer:[{s:"s",drop:"飛",to:[4,1]}, {s:"g",drop:"角",to:[3,1]}, {s:"s",drop:"桂",to:[4,2]}, {s:"g",from:[2,1],to:[1,2]}, {s:"s",from:[3,3],to:[2,3]}],
+     variations:[{at:2, line:[{s:"g",from:[2,1],to:[1,2]}, {s:"s",from:[4,1],to:[1,1],promo:true}, {s:"g",from:[1,2],to:[1,1]}, {s:"s",drop:"金",to:[2,2]}]}, {at:2, alt:["歩","香","桂","銀","金","飛"], line:[{s:"g",drop:"歩",to:[3,1]}, {s:"s",drop:"桂",to:[4,2]}, {s:"g",from:[2,1],to:[1,2]}, {s:"s",from:[3,3],to:[2,3]}]}],
      hint:"飛車は玉から一つ離して打ちます。受けられたら桂を打ち、最後は金を寄せましょう"},
     {name:"第62問 角と銀で引き出す", len:5, level:5,
      b:{"2-1":{t:"玉",s:"g"}, "1-4":{t:"飛",s:"s"}, "4-1":{t:"歩",s:"s"}, "2-3":{t:"桂",s:"g"}, "5-4":{t:"歩",s:"g"}},
      hand:["銀","角"],
      answer:[{s:"s",drop:"角",to:[4,3]}, {s:"g",from:[2,1],to:[2,2]}, {s:"s",drop:"銀",to:[3,1]}, {s:"g",from:[2,2],to:[3,3]}, {s:"s",from:[1,4],to:[3,4],promo:true}],
+     variations:[{at:2, alt:["歩","香","桂","銀","金","角","飛"], line:[{s:"g",drop:"歩",to:[3,2]}, {s:"s",drop:"銀",to:[3,1]}]}],
      hint:"角は斜めに離して打ちます。玉が動いたら銀を打ち、最後は飛車を成りましょう"},
     {name:"第63問 桂で香を取って打ち直す", len:5, level:4,
      b:{"3-1":{t:"玉",s:"g"}, "4-3":{t:"金",s:"s"}, "6-1":{t:"桂",s:"s"}, "4-2":{t:"香",s:"g"}},
      hand:["飛"],
      answer:[{s:"s",drop:"飛",to:[3,2]}, {s:"g",from:[3,1],to:[2,1]}, {s:"s",from:[6,1],to:[4,2]}, {s:"g",from:[2,1],to:[1,1]}, {s:"s",drop:"香",to:[2,1]}],
+     variations:[{at:2, line:[{s:"g",from:[3,1],to:[4,1]}, {s:"s",from:[3,2],to:[4,2],promo:true}]}],
      hint:"飛車は玉の隣に打ちます。玉が逃げたら桂で香を取り、その香を打ちましょう"},
     {name:"第64問 金を打って角で追う", len:5, level:4,
      b:{"2-2":{t:"玉",s:"g"}, "2-5":{t:"銀",s:"s"}, "4-3":{t:"金",s:"s"}, "1-2":{t:"桂",s:"g"}},
      hand:["角","金"],
      answer:[{s:"s",drop:"金",to:[3,2]}, {s:"g",from:[2,2],to:[1,3]}, {s:"s",drop:"角",to:[2,2]}, {s:"g",from:[1,3],to:[2,4]}, {s:"s",from:[4,3],to:[3,4]}],
+     variations:[{at:2, line:[{s:"g",from:[2,2],to:[1,1]}, {s:"s",drop:"角",to:[2,2]}]}],
      hint:"金は玉の真下に打ちます。玉が動いたら角を打ち、最後は盤上の金を斜めに寄せましょう"},
     {name:"第65問 飛車を捨てて金で詰ます", len:5, level:5,
      b:{"1-2":{t:"玉",s:"g"}, "4-3":{t:"角",s:"s"}},
      hand:["飛","金"],
      answer:[{s:"s",drop:"飛",to:[1,1]}, {s:"g",from:[1,2],to:[2,2]}, {s:"s",drop:"金",to:[3,2]}, {s:"g",from:[2,2],to:[1,1]}, {s:"s",from:[3,2],to:[2,1]}],
+     variations:[{at:2, line:[{s:"g",from:[1,2],to:[2,3]}, {s:"s",drop:"金",to:[3,4]}, {s:"g",from:[2,3],to:[2,2]}, {s:"s",from:[4,3],to:[2,1],promo:true}]}, {at:2, line:[{s:"g",from:[1,2],to:[1,1]}, {s:"s",drop:"金",to:[2,1]}]}],
      hint:"飛車は玉の横に打ちます。金を打って王手し、玉が飛車を取ったら金を寄せましょう"},
     {name:"第66問 角で押し出して竜で決める", len:5, level:5,
      b:{"2-2":{t:"玉",s:"g"}, "1-2":{t:"銀",s:"s"}, "5-1":{t:"飛",s:"s"}},
      hand:["角","飛"],
      answer:[{s:"s",drop:"飛",to:[2,3]}, {s:"g",from:[2,2],to:[3,2]}, {s:"s",drop:"角",to:[2,1]}, {s:"g",from:[3,2],to:[4,2]}, {s:"s",from:[2,3],to:[5,3],promo:true}],
+     variations:[{at:2, line:[{s:"g",from:[2,2],to:[1,2]}, {s:"s",from:[5,1],to:[2,1],promo:true}]}],
      hint:"飛車は玉の隣に打ちます。玉が上がったら角を打ち、最後は飛車を縦に動かして成りましょう"},
     {name:"第67問 竜と銀で端に追い詰める", len:5, level:4,
      b:{"1-1":{t:"玉",s:"g"}, "4-3":{t:"金",s:"s"}, "3-3":{t:"飛",s:"s"}},
      hand:["銀"],
      answer:[{s:"s",from:[3,3],to:[1,3],promo:true}, {s:"g",from:[1,1],to:[2,1]}, {s:"s",drop:"銀",to:[3,2]}, {s:"g",from:[2,1],to:[3,1]}, {s:"s",from:[1,3],to:[2,2]}],
+     variations:[{at:2, alt:["歩","香","桂","銀","金","角","飛"], line:[{s:"g",drop:"歩",to:[1,2]}, {s:"s",drop:"銀",to:[2,2]}, {s:"g",from:[1,1],to:[2,1]}, {s:"s",from:[1,3],to:[1,2]}]}],
      hint:"最初は飛車を一段目まで成り込みます。銀は玉の斜め下に打ち、最後は竜を寄せましょう"},
     {name:"第68問 桂を捨てて香をどかす", len:5, level:5,
      b:{"1-1":{t:"玉",s:"g"}, "3-4":{t:"飛",s:"s"}, "1-2":{t:"香",s:"g"}},
      hand:["銀","桂"],
      answer:[{s:"s",from:[3,4],to:[3,1],promo:true}, {s:"g",drop:"歩",to:[2,1]}, {s:"s",drop:"桂",to:[3,2]}, {s:"g",from:[1,2],to:[3,2]}, {s:"s",drop:"銀",to:[2,2]}],
+     variations:[{at:2, alt:["香","桂","銀","金","角","飛"], line:[{s:"g",drop:"香",to:[2,1]}, {s:"s",drop:"桂",to:[3,2]}, {s:"g",from:[1,2],to:[3,2]}, {s:"s",drop:"銀",to:[2,2]}]}],
      hint:"飛車は玉と同じ筋に成り込みます。合駒が来たら桂を打って香に取らせ、最後は銀を打ちましょう"},
     {name:"第69問 銀を打ち、銀を成る", len:5, level:4,
      b:{"1-4":{t:"玉",s:"g"}, "1-3":{t:"角",s:"s"}, "4-5":{t:"銀",s:"s"}, "1-7":{t:"香",s:"g"}},
      hand:["飛","銀"],
      answer:[{s:"s",drop:"銀",to:[2,4]}, {s:"g",from:[1,4],to:[2,5]}, {s:"s",from:[4,5],to:[3,5],promo:true}, {s:"g",from:[2,5],to:[1,6]}, {s:"s",drop:"飛",to:[2,6]}],
+     variations:[{at:2, line:[{s:"g",from:[1,4],to:[2,3]}, {s:"s",drop:"飛",to:[2,2]}]}],
      hint:"銀は玉の真下に打ちます。玉が逃げたら盤上の銀を成り、最後は飛車を打ちましょう"},
     {name:"第70問 歩を成って詰め上げる", len:5, level:4,
      b:{"2-4":{t:"玉",s:"g"}, "3-7":{t:"歩",s:"s"}, "2-3":{t:"銀",s:"s"}},
@@ -6061,16 +6228,19 @@
      b:{"3-1":{t:"玉",s:"g"}, "2-3":{t:"飛",s:"s"}, "6-1":{t:"金",s:"s"}, "4-2":{t:"香",s:"g"}},
      hand:["金","金"],
      answer:[{s:"s",drop:"金",to:[4,1]}, {s:"g",from:[3,1],to:[4,1]}, {s:"s",from:[2,3],to:[2,1],promo:true}, {s:"g",drop:"歩",to:[3,1]}, {s:"s",drop:"金",to:[5,1]}],
+     variations:[{at:4, alt:["香","桂","銀","金","角","飛"], line:[{s:"g",drop:"香",to:[3,1]}, {s:"s",drop:"金",to:[5,1]}]}],
      hint:"最初の金は玉の真下に打って取らせます。飛車を成り込んで、最後は金を玉の真下に打ちましょう"},
     {name:"第73問 遠くから角を打つ", len:5, level:5,
      b:{"3-3":{t:"玉",s:"g"}, "6-4":{t:"飛",s:"s"}, "2-2":{t:"飛",s:"s"}},
      hand:["角"],
      answer:[{s:"s",from:[6,4],to:[2,4],promo:true}, {s:"g",from:[3,3],to:[4,3]}, {s:"s",drop:"角",to:[6,1]}, {s:"g",from:[4,3],to:[5,3]}, {s:"s",from:[2,2],to:[5,2],promo:true}],
+     variations:[{at:4, alt:["歩","香","桂","銀","金","角"], line:[{s:"g",drop:"歩",to:[5,2]}, {s:"s",from:[2,2],to:[5,2],promo:true}]}],
      hint:"最初は飛車を二段目まで成り込みます。角は盤の端から打ち、最後は二段目の飛車を縦に動かして成りましょう"},
     {name:"第74問 香を取らせて竜で仕留める", len:5, level:5,
      b:{"1-1":{t:"玉",s:"g"}, "2-2":{t:"香",s:"s"}, "2-3":{t:"香",s:"s"}},
      hand:["飛","金"],
      answer:[{s:"s",drop:"飛",to:[3,1]}, {s:"g",from:[1,1],to:[2,2]}, {s:"s",drop:"金",to:[3,2]}, {s:"g",from:[2,2],to:[1,2]}, {s:"s",from:[3,1],to:[2,1],promo:true}],
+     variations:[{at:2, alt:["歩","香","桂","銀","金","角","飛"], line:[{s:"g",drop:"歩",to:[2,1]}, {s:"s",drop:"金",to:[1,2]}]}],
      hint:"飛車は玉と同じ筋に打ちます。玉が逃げたら金を玉の真下に打ち、最後は飛車を成りましょう"},
     {name:"第75問 金と桂で追って馬で決める", len:5, level:4,
      b:{"1-3":{t:"玉",s:"g"}, "4-2":{t:"飛",s:"s"}, "2-5":{t:"角",s:"s"}},
@@ -6081,16 +6251,19 @@
      b:{"1-4":{t:"玉",s:"g"}, "4-4":{t:"銀",s:"s"}, "4-3":{t:"角",s:"s"}, "2-5":{t:"香",s:"g"}},
      hand:["金","金"],
      answer:[{s:"s",drop:"金",to:[2,4]}, {s:"g",from:[1,4],to:[2,4]}, {s:"s",from:[4,4],to:[3,4],promo:true}, {s:"g",from:[2,4],to:[1,3]}, {s:"s",drop:"金",to:[2,3]}],
+     variations:[{at:4, line:[{s:"g",from:[2,4],to:[1,4]}, {s:"s",drop:"金",to:[2,4]}]}, {at:4, line:[{s:"g",from:[2,4],to:[1,5]}, {s:"s",from:[3,4],to:[2,5]}]}],
      hint:"最初の金はただで取らせます。玉が出てきたら盤上の銀を成り、最後は金を打ちましょう"},
     {name:"第77問 二枚の飛車で挟む", len:5, level:4,
      b:{"3-3":{t:"玉",s:"g"}, "2-5":{t:"飛",s:"s"}, "6-2":{t:"桂",s:"s"}},
      hand:["飛"],
      answer:[{s:"s",drop:"飛",to:[4,3]}, {s:"g",from:[3,3],to:[3,2]}, {s:"s",from:[2,5],to:[2,3],promo:true}, {s:"g",from:[3,2],to:[3,1]}, {s:"s",from:[4,3],to:[4,1]}],
+     variations:[{at:2, line:[{s:"g",from:[3,3],to:[3,4]}, {s:"s",from:[4,3],to:[2,3],promo:true}, {s:"g",from:[3,4],to:[4,4]}, {s:"s",from:[2,3],to:[4,3]}]}],
      hint:"飛車は玉の真下に打ちます。玉が逃げたら盤上の飛車を成り、最後は打った飛車を横に動かしましょう"},
     {name:"第78問 飛車を打って馬と竜", len:5, level:5,
      b:{"3-3":{t:"玉",s:"g"}, "3-1":{t:"角",s:"s"}, "5-6":{t:"角",s:"s"}, "5-2":{t:"歩",s:"g"}},
      hand:["飛"],
      answer:[{s:"s",drop:"飛",to:[3,5]}, {s:"g",from:[3,3],to:[2,4]}, {s:"s",from:[5,6],to:[3,4],promo:true}, {s:"g",from:[2,4],to:[1,4]}, {s:"s",from:[3,5],to:[2,5],promo:true}],
+     variations:[{at:2, line:[{s:"g",from:[3,3],to:[4,4]}, {s:"s",from:[3,5],to:[4,5],promo:true}, {s:"g",from:[4,4],to:[3,3]}, {s:"s",from:[4,5],to:[3,4]}]}, {at:2, line:[{s:"g",from:[3,3],to:[4,3]}, {s:"s",from:[3,5],to:[3,4],promo:true}]}, {at:2, alt:["歩","香","桂","銀","金","飛"], line:[{s:"g",drop:"歩",to:[3,4]}, {s:"s",from:[3,5],to:[3,4],promo:true}]}],
      hint:"飛車は玉と同じ段に、少し離して打ちます。玉が逃げたら角を成り、最後は飛車を成りましょう"},
     {name:"第79問 打った飛車が横に走る", len:5, level:4,
      b:{"2-2":{t:"玉",s:"g"}, "5-3":{t:"銀",s:"s"}, "1-1":{t:"飛",s:"s"}, "2-3":{t:"桂",s:"g"}},
@@ -6106,26 +6279,31 @@
      b:{"1-2":{t:"玉",s:"g"}, "4-1":{t:"桂",s:"s"}, "2-5":{t:"歩",s:"s"}},
      hand:["飛","桂"],
      answer:[{s:"s",drop:"飛",to:[2,2]}, {s:"g",from:[1,2],to:[1,3]}, {s:"s",drop:"桂",to:[3,4]}, {s:"g",from:[1,3],to:[1,4]}, {s:"s",from:[2,5],to:[1,5],promo:true}],
+     variations:[{at:2, line:[{s:"g",from:[1,2],to:[1,1]}, {s:"s",drop:"桂",to:[3,2]}]}],
      hint:"飛車は玉の真下に打ちます。玉が逃げたら桂を打ち、最後は歩を成りましょう"},
     {name:"第82問 合駒を桂で仕留める", len:5, level:4,
      b:{"1-2":{t:"玉",s:"g"}, "4-3":{t:"飛",s:"s"}, "2-3":{t:"飛",s:"s"}, "3-2":{t:"桂",s:"g"}},
      hand:["桂"],
      answer:[{s:"s",from:[2,3],to:[1,3],promo:true}, {s:"g",from:[1,2],to:[2,1]}, {s:"s",from:[4,3],to:[4,1]}, {s:"g",drop:"歩",to:[3,1]}, {s:"s",drop:"桂",to:[4,2]}],
+     variations:[{at:4, alt:["香","桂","銀","金","角"], line:[{s:"g",drop:"香",to:[3,1]}, {s:"s",drop:"桂",to:[4,2]}]}],
      hint:"最初は二段目の飛車を成り込みます。玉が逃げたら四段目の飛車を端へ動かし、最後は桂を打ちましょう"},
     {name:"第83問 角を打って飛車で追う", len:5, level:4,
      b:{"1-1":{t:"玉",s:"g"}, "3-3":{t:"銀",s:"s"}},
      hand:["飛","角"],
      answer:[{s:"s",drop:"角",to:[2,2]}, {s:"g",from:[1,1],to:[2,1]}, {s:"s",drop:"飛",to:[3,1]}, {s:"g",from:[2,1],to:[1,2]}, {s:"s",from:[3,1],to:[1,1],promo:true}],
+     variations:[{at:2, line:[{s:"g",from:[1,1],to:[1,2]}, {s:"s",drop:"飛",to:[1,1]}]}],
      hint:"角は玉の斜め下に打ちます。玉が逃げたら飛車を玉の真下に打ち、最後は飛車を成りましょう"},
     {name:"第84問 金・馬・金で寄せる", len:5, level:4,
      b:{"3-4":{t:"玉",s:"g"}, "2-6":{t:"角",s:"s"}, "2-3":{t:"金",s:"g"}},
      hand:["金","金"],
      answer:[{s:"s",drop:"金",to:[4,4]}, {s:"g",from:[3,4],to:[2,4]}, {s:"s",from:[2,6],to:[3,5],promo:true}, {s:"g",from:[2,4],to:[1,4]}, {s:"s",drop:"金",to:[2,5]}],
+     variations:[{at:2, line:[{s:"g",from:[3,4],to:[2,5]}, {s:"s",from:[2,6],to:[3,5],promo:true}, {s:"g",from:[2,5],to:[1,6]}, {s:"s",drop:"金",to:[2,6]}]}, {at:4, line:[{s:"g",from:[2,4],to:[1,5]}, {s:"s",drop:"金",to:[2,5]}]}],
      hint:"金は玉の真下に打ちます。玉が逃げたら角を成り、最後は金を玉の斜め下に打ちましょう"},
     {name:"第85問 歩を打って桂で決める", len:5, level:4,
      b:{"1-2":{t:"玉",s:"g"}, "3-4":{t:"飛",s:"s"}, "3-1":{t:"銀",s:"s"}},
      hand:["歩","桂"],
      answer:[{s:"s",from:[3,4],to:[1,4],promo:true}, {s:"g",drop:"歩",to:[1,3]}, {s:"s",drop:"歩",to:[2,2]}, {s:"g",from:[1,2],to:[1,1]}, {s:"s",drop:"桂",to:[3,2]}],
+     variations:[{at:2, alt:["香","桂","銀","金","角","飛"], line:[{s:"g",drop:"香",to:[1,3]}, {s:"s",drop:"歩",to:[2,2]}, {s:"g",from:[1,2],to:[1,1]}, {s:"s",drop:"桂",to:[3,2]}]}],
      hint:"飛車は一段目まで成り込みます。合駒が来たら歩を玉の真下に打ち、最後は桂を打ちましょう"}
   ];
   /* <</TSUME:problems>> */
@@ -6142,10 +6320,12 @@
       for(let n = 0; n < rest[t]; n++) out.push(t);
     return out;
   }
-  function startTsume(i){
+  function startTsume(i, restart){
     const q = TSUME[i];
-    // 詰将棋フォルダ画面が開いていればそこへ戻す。それ以外(今日の詰将棋)は戦うタブへ
-    TSUME_FROM = document.getElementById("tsume-box").hidden ? null : TSUME_CUR_FOLDER;
+    // 詰将棋フォルダ画面が開いていればそこへ戻す。それ以外(今日の詰将棋)は戦うタブへ。
+    // 盤の上からやり直すとき（もう一度・問題に戻る）はフォルダ画面が閉じているので、
+    // 前の出身を引き継ぐ（判定し直すと、過去の問題が「今日の詰将棋」扱いになっていた）
+    if(!restart) TSUME_FROM = document.getElementById("tsume-box").hidden ? null : TSUME_CUR_FOLDER;
     PLAY.todayTsume = (TSUME_FROM === null);
     window.FORCE_COMPACT = PLAY.todayTsume;   // 今日の詰将棋はヘッダー非表示・タブ縮小で始める
     if(typeof updateHdrVisibility === "function") setTimeout(updateHdrVisibility, 0);
@@ -6153,7 +6333,7 @@
     // 盤面へ入る前に、開いている全パネル・全タブ画面を閉じる(一覧が背後に残るのを防ぐ)
     document.querySelectorAll(".panelbox, .tabpanel").forEach(el => { el.hidden = true; });
     PLAY.on = true; PLAY.over = false; PLAY.thinking = false;
-    PLAY.resignArm = false; PLAY.exitArm = false;
+    PLAY.resignArm = false; PLAY.exitArm = false; PLAY.answerOn = false;
     PLAY.moves = [];
     PLAY.tsume = i;
     PLAY.st = {b:{}, hands:{s:[...q.hand], g:[]}};
@@ -6663,7 +6843,7 @@
     setTimeout(() => document.getElementById("board").scrollIntoView({behavior:"smooth", block:"center"}), 60);
   }
   function exitPlay(){
-    PLAY.on = false; PLAY.over = false; PLAY.thinking = false;
+    PLAY.on = false; PLAY.over = false; PLAY.thinking = false; PLAY.answerOn = false;
     PLAY.tsume = null;
     window.FORCE_COMPACT = false;
     if(typeof updateHdrVisibility === "function") setTimeout(updateHdrVisibility, 0);
