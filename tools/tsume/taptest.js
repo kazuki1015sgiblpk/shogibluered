@@ -7,7 +7,7 @@
  * ここでは利用者と同じように、駒やマスの位置をクリックして指す。
  *
  * 使い方:
- *   node tools/tsume/taptest.js            # 明日以降に配信する問題
+ *   node tools/tsume/taptest.js            # 今日以降に配信する問題
  *   node tools/tsume/taptest.js --all      # 全問
  *
  * 確かめること: 正解手順がすべて指せる・玉方の応手が登録手順どおり・
@@ -47,11 +47,11 @@ async function main(){
   let bad = 0;
   try{
     await page.goto(`http://127.0.0.1:${server.address().port}/index.html`, { waitUntil: "load" });
-    // 対象: 明日以降の配信予定（同じ問題は1度だけ）
+    // 対象: 今日以降の配信予定（同じ問題は1度だけ）。補充が遅れて当日の問題を足すこともあるので今日も含める
     const idxs = await page.evaluate(all => {
       if(all) return TSUME.map((_, i) => i);
       const out = [];
-      for(let n = todayTsumeNo() + 1; n <= TSUME_SCHEDULE.length; n++){
+      for(let n = Math.max(1, todayTsumeNo()); n <= TSUME_SCHEDULE.length; n++){
         const i = tsumeIndexForNo(n);
         if(!out.includes(i)) out.push(i);
       }
